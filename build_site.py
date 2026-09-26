@@ -36,18 +36,10 @@ def build_data():
     models.sort(key=lambda m: -m["performance"])
 
     prompt_ids = sorted({r["prompt_id"] for r in summary_rows})
-    by_model = {}
-    for r in summary_rows:
-        by_model.setdefault(r["model"], {})[r["prompt_id"]] = {
-            "rate": float(r["rate"]),
-            "judged": int(r["judged"]),
-            "spotted": int(r["spotted"]),
-        }
 
     return {
         "prompts": prompt_ids,
         "models": models,
-        "byPrompt": by_model,
     }
 
 
@@ -180,8 +172,6 @@ svg text { fill: var(--text-muted); font-size: 11px; }
 .tooltip .tt-row { color: var(--text-secondary); }
 .tooltip .tt-row .tt-val { color: var(--text-primary); font-weight: 600; }
 
-.heat-cell { padding: 5px 9px; text-align: center; border-radius: 5px; font-variant-numeric: tabular-nums; display: inline-block; min-width: 44px; }
-
 footer { color: var(--text-muted); font-size: 0.78rem; text-align: center; margin-top: 36px; }
 a { color: var(--accent); }
 </style>
@@ -211,12 +201,6 @@ a { color: var(--accent); }
       <div id="scatter-tokens"></div>
       <div id="scatter-latency"></div>
     </div>
-  </div>
-
-  <div class="card">
-    <h2>Detection rate by prompt</h2>
-    <p class="desc">One cell per model x prompt, colored by detection rate (brighter = higher).</p>
-    <div id="heatmap" style="overflow-x:auto;"></div>
   </div>
 
   <div class="card">
@@ -375,8 +359,12 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
     el.innerHTML = "";
     if (pts.length === 0) { el.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No providers selected.</p>'; return; }
 
-    const xs = pts.map(m => m[xKey]);
-    const xMax = Math.max(...xs) * 1.08 || 1;
+    const xsPos = pts.map(m => m[xKey]).filter(v => v > 0);
+    const dataMin = Math.min(...xsPos);
+    const dataMax = Math.max(...xsPos);
+    const xMin = dataMin / 1.3;
+    const xMax = dataMax * 1.3;
+    const logMin = Math.log(xMin), logMax = Math.log(xMax);
 
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
@@ -384,18 +372,31 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
     svg.setAttribute("preserveAspectRatio", "xMinYMin meet");
     svg.style.display = "block";
 
-    function sx(v) { return PAD_L + (v / xMax) * (W - PAD_L - PAD_R); }
+    function sx(v) { return PAD_L + (Math.log(Math.max(v, xMin)) - logMin) / (logMax - logMin) * (W - PAD_L - PAD_R); }
     function sy(v) { return H - PAD_B - v * (H - PAD_B - PAD_T); }
+
+    function logTicks(min, max) {
+      const ticks = [];
+      const kMin = Math.floor(Math.log10(min));
+      const kMax = Math.ceil(Math.log10(max));
+      for (let k = kMin; k <= kMax; k++) {
+        for (const a of [1, 2, 5]) {
+          const v = a * Math.pow(10, k);
+          if (v >= min * 0.999 && v <= max * 1.001) ticks.push(v);
+        }
+      }
+      return ticks;
+    }
 
     let inner = "";
     [0, 0.25, 0.5, 0.75, 1].forEach(t => {
       inner += `<line x1="${PAD_L}" y1="${sy(t)}" x2="${W - PAD_R}" y2="${sy(t)}" stroke="var(--grid)" stroke-width="1"/>`;
       inner += `<text x="${PAD_L - 8}" y="${sy(t) + 4}" text-anchor="end">${(t*100).toFixed(0)}%</text>`;
     });
-    for (let f = 0; f <= 1.0001; f += 0.2) {
-      const v = xMax * f;
+    logTicks(dataMin, dataMax).forEach(v => {
+      inner += `<line x1="${sx(v)}" y1="${PAD_T}" x2="${sx(v)}" y2="${H - PAD_B}" stroke="var(--grid)" stroke-width="1"/>`;
       inner += `<text x="${sx(v)}" y="${H - PAD_B + 18}" text-anchor="middle">${xFmt(v)}</text>`;
-    }
+    });
     inner += `<line x1="${PAD_L}" y1="${H-PAD_B}" x2="${W-PAD_R}" y2="${H-PAD_B}" stroke="var(--baseline)" stroke-width="1"/>`;
     inner += `<text class="axis-title" x="${(W)/2}" y="${H-4}" text-anchor="middle">${xLabel}</text>`;
     inner += `<text class="axis-title" x="${-H/2}" y="16" text-anchor="middle" transform="rotate(-90)">detection rate</text>`;
@@ -493,38 +494,9 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
   draw();
 }
 
-scatterChart("scatter-cost", "cost_per_pass_usd", "cost per pass ($)", v => "$" + v.toFixed(2));
-scatterChart("scatter-tokens", "avg_output_tokens", "avg output tokens", v => v.toFixed(0));
-scatterChart("scatter-latency", "avg_latency_seconds", "avg latency (s)", v => v.toFixed(0) + "s");
-
-// ---- heatmap ----
-(function renderHeatmap() {
-  const el = document.getElementById("heatmap");
-  function draw() {
-    const prompts = DATA.prompts;
-    const rows = visibleModels();
-    let html = '<table><thead><tr><th>model</th>' + prompts.map(p => `<th>${p}</th>`).join("") + '</tr></thead><tbody>';
-    rows.forEach(m => {
-      const c = colorFor(m.provider);
-      html += `<tr><td><div class="model-cell"><span class="dot" style="background:${c}"></span>${shortName(m.model)}</div></td>`;
-      prompts.forEach(p => {
-        const cell = (DATA.byPrompt[m.model] || {})[p];
-        const rate = cell ? cell.rate : null;
-        if (rate === null) {
-          html += `<td>-</td>`;
-        } else {
-          const bg = `color-mix(in srgb, ${c} ${(rate*100).toFixed(0)}%, var(--surface-2))`;
-          html += `<td><span class="heat-cell" style="background:${bg}; color:${rate > 0.5 ? '#fff' : 'var(--text-secondary)'};">${fmtPct(rate)}</span></td>`;
-        }
-      });
-      html += "</tr>";
-    });
-    html += "</tbody></table>";
-    el.innerHTML = html;
-  }
-  renderers.push(draw);
-  draw();
-})();
+scatterChart("scatter-cost", "cost_per_pass_usd", "cost per pass ($, log scale)", v => v < 0.01 ? "$" + v.toFixed(3) : "$" + v.toFixed(2));
+scatterChart("scatter-tokens", "avg_output_tokens", "avg output tokens (log scale)", v => v.toFixed(0));
+scatterChart("scatter-latency", "avg_latency_seconds", "avg latency (s, log scale)", v => v.toFixed(0) + "s");
 
 // ---- full table ----
 (function renderTable() {
