@@ -155,6 +155,7 @@ svg text { fill: var(--text-muted); font-size: 11px; }
 .axis-title { fill: var(--text-secondary) !important; font-size: 12px !important; font-weight: 600; }
 .dot-pt { stroke: var(--surface-1); stroke-width: 1.5; cursor: pointer; }
 .point-label { fill: var(--text-secondary); font-size: 10px; pointer-events: none; }
+.leader-line { stroke: var(--baseline); stroke-width: 1; pointer-events: none; }
 .dot-hit { fill: transparent; cursor: pointer; }
 .frontier-line { fill: none; stroke: var(--text-secondary); stroke-width: 1.5; stroke-dasharray: 5 4; opacity: 0.6; }
 .frontier-pt { fill: none; stroke-width: 2; }
@@ -162,7 +163,7 @@ svg text { fill: var(--text-muted); font-size: 11px; }
 .tooltip {
   position: fixed;
   pointer-events: none;
-  background: #1c2230;
+  background: var(--surface-1);
   border: 1px solid var(--border);
   color: var(--text-primary);
   padding: 8px 12px;
@@ -172,7 +173,7 @@ svg text { fill: var(--text-muted); font-size: 11px; }
   transform: translate(-50%, -125%);
   white-space: nowrap;
   z-index: 10;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  box-shadow: 0 8px 24px rgba(11,11,11,0.18);
 }
 .tooltip b { color: var(--text-primary); }
 .tooltip .tt-val { font-variant-numeric: tabular-nums; }
@@ -408,10 +409,39 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
     svg.innerHTML = inner;
 
     const frontierSet = new Set(frontier.map(p => p.model));
-    pts.forEach(m => {
+
+    // Layout: points close together on X get their labels dodged apart
+    // vertically (stacked with a minimum gap), each with a leader line back
+    // to its dot, so a cluster of near-identical values stays readable.
+    const items = pts.map(m => ({
+      m, cx: sx(m[xKey]), cy: sy(m.performance),
+      label: shortName(m.model),
+    })).sort((a, b) => a.cx - b.cx || a.cy - b.cy);
+
+    const minGap = 13, xWindow = 68;
+    const placed = [];
+    items.forEach(it => {
+      let y = it.cy;
+      let conflict = true;
+      while (conflict) {
+        conflict = false;
+        for (const p of placed) {
+          if (Math.abs(p.cx - it.cx) < xWindow && Math.abs(p.yLabel - y) < minGap) {
+            y = p.yLabel + minGap;
+            conflict = true;
+          }
+        }
+      }
+      it.yLabel = Math.min(y, H - PAD_B - 4);
+      placed.push({ cx: it.cx, yLabel: it.yLabel });
+    });
+
+    items.forEach(it => {
+      const { m, cx, cy } = it;
       const c = colorFor(m.provider);
-      const cx = sx(m[xKey]), cy = sy(m.performance);
       const onFrontier = frontierSet.has(m.model);
+      const yLabel = it.yLabel;
+      const dodged = Math.abs(yLabel - cy) > 2;
 
       const hit = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       hit.setAttribute("cx", cx); hit.setAttribute("cy", cy); hit.setAttribute("r", 13);
@@ -425,12 +455,22 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
       if (onFrontier) { dot.style.filter = `drop-shadow(0 0 4px ${c})`; }
 
       const nearRight = cx > W - PAD_R - 90;
+      const labelX = nearRight ? cx - 9 : cx + 9;
+
+      let leader = null;
+      if (dodged) {
+        leader = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        leader.setAttribute("x1", cx); leader.setAttribute("y1", cy);
+        leader.setAttribute("x2", nearRight ? cx - 5 : cx + 5); leader.setAttribute("y2", yLabel);
+        leader.setAttribute("class", "leader-line");
+      }
+
       const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-      label.setAttribute("x", nearRight ? cx - 9 : cx + 9);
-      label.setAttribute("y", cy + 3);
+      label.setAttribute("x", labelX);
+      label.setAttribute("y", yLabel + 3);
       label.setAttribute("text-anchor", nearRight ? "end" : "start");
       label.setAttribute("class", "point-label");
-      label.textContent = shortName(m.model);
+      label.textContent = it.label;
 
       const tip = (e) => showTip(e, `
         <div><b>${m.model}</b></div>
@@ -441,6 +481,7 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
       hit.addEventListener("mousemove", tip);
       hit.addEventListener("mouseleave", hideTip);
 
+      if (leader) svg.appendChild(leader);
       svg.appendChild(hit);
       svg.appendChild(dot);
       svg.appendChild(label);
