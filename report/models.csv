@@ -14,7 +14,7 @@ default,mistral/mistral-large-3,20,0,0.000,1151,15.5,0.00737
 default,moonshotai/kimi-k3,20,8,0.400,8664,65.8,0.52140
 default,openai/gpt-6-astra,20,20,1.000,974,23.3,0.20462
 default,openai/gpt-6-luna,20,10,0.500,1721,16.5,0.00354
-default,openai/gpt-6-sol,19,19,1.000,670,11.9,0.02878
+default,openai/gpt-6-sol,20,20,1.000,660,11.7,0.02860
 default,spacexai/grok-4.1-fast-reasoning,20,0,0.000,1769,9.7,0.00377
 default,spacexai/grok-4.7,20,7,0.350,3303,38.2,0.05001
 default,zai/glm-5.3,20,3,0.150,1976,19.6,0.03526
