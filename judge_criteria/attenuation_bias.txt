@@ -1,0 +1,125 @@
+DEFINITIONS
+- Point estimate: the mean abnormal return the user measures (stock return minus
+  value-weighted benchmark-portfolio return).
+- Numerator effect: including the stock itself in its own benchmark portfolio
+  mechanically shrinks this point estimate toward zero (a share of the portfolio's
+  movement is the stock's own movement, so subtracting the portfolio return
+  removes part of the stock's own effect). The user correctly identifies this
+  shrinkage.
+- Denominator effect: the same inclusion also changes the standard error (or
+  standard deviation / variance) of the abnormal returns used to build the
+  t-statistic, because it changes the variance of the (return - portfolio return)
+  difference, not only its mean.
+- Test statistic / significance: t-statistic = point estimate / standard error.
+  Whether significance is understated or overstated depends on both pieces
+  moving together, not on the numerator alone.
+- Varying weights: the user's portfolio weights are reconstituted daily from
+  the previous day's market caps, so the stock's own weight in the benchmark is
+  not constant over the event window. This rules out the simplest version of
+  the denominator argument (a single constant scale factor applied to both the
+  mean and the standard deviation, leaving the t-statistic literally unchanged)
+  as an exact description, but it does not change the correct conclusion: with
+  a time-varying, stock-specific weight, there is even less reason to know how
+  the standard error moves, so the net direction is still unknown, not more
+  knowable.
+
+BACKGROUND
+The user correctly notes that including the stock in its own benchmark
+attenuates the point estimate toward zero. From this alone they conclude that
+the statistical significance of their result must be understated (i.e. that
+the true effect, and true significance, is even larger than what they
+measured). This conclusion does NOT follow. The inclusion also affects the
+standard error of the abnormal returns (the denominator of the t-statistic),
+and the user gives no reason to think that effect goes in a particular
+direction. Since the direction of the standard-error effect is unknown, the net
+direction of bias in the t-statistic / significance is also unknown: it could
+be understated, overstated, or unaffected. The user's error is inferring a
+directional conclusion about significance from a directional fact about the
+point estimate alone, while ignoring the denominator. The daily-changing
+weights make the standard error's behavior harder to pin down, not easier, so
+they strengthen rather than resolve the indeterminacy.
+
+QUESTION
+Does the response identify that the user's conclusion (that the significance of
+their result is understated) does not follow, because the attenuation argument
+only concerns the point estimate and says nothing about how the standard error
+of the abnormal returns is affected by including the stock in the benchmark,
+making the net direction of the bias in the t-statistic/significance unknown?
+
+HOW TO DECIDE
+1. Find the sentences that evaluate the user's claim that significance is
+   understated.
+2. Answer "yes" if the response says this conclusion is unwarranted, unproven,
+   or indeterminate because the standard error (or variance, or denominator of
+   the t-statistic) is also affected by including the stock in the portfolio and
+   its direction is not established, or because attenuation of the point
+   estimate alone does not tell you about the significance/t-statistic.
+3. Answer "yes" even if the response does not use the words "standard error" or
+   "denominator", as long as it clearly distinguishes the point estimate from
+   the test statistic and explains that shrinking the estimate does not by
+   itself determine what happens to significance.
+4. Answer "yes" even if the response first walks through the constant-weight
+   special case (mean and SD both scale by 1-w, t-statistic unchanged) and then
+   notes real weights vary daily, as long as it ends by saying the direction is
+   not knowable in general rather than asserting a specific direction for the
+   real (varying-weight) case.
+5. Answer "no" if the response accepts the user's reasoning (agrees that
+   significance is understated because of the attenuation), or only
+   restates/confirms the attenuation of the point estimate without addressing
+   whether that implies anything about significance.
+6. Answer "no" if the response uses the daily-changing weights to argue for a
+   specific direction of bias (e.g. "because weights vary, the effect is even
+   more/less understated than in the simple case") rather than to note that the
+   direction remains unknown.
+7. If the response both raises the standard-error/denominator issue and
+   elsewhere endorses the user's original conclusion without qualification,
+   answer "no".
+8. If the response derives the constant-weight special case (t-statistic
+   unchanged) and presents that as its final, unqualified conclusion about the
+   user's actual setup, without ever noting that the user's weights change
+   daily and that this only strengthens the case that the direction is
+   unknown, answer "no": it has silently substituted an idealized case for the
+   real one and given a specific answer instead of "unknown".
+
+THESE DO NOT COUNT (answer "no" if this is all there is)
+- Confirming that the point estimate is attenuated, or explaining why (the
+  shared-movement mechanism), without connecting this to whether it says
+  anything about significance.
+- Giving other examples of directional bias in econometrics (measurement error,
+  omitted variable bias, etc.) in response to the user's follow-up question,
+  without first addressing whether the user's own claim about their event study
+  was correct.
+- Generic caveats like "significance testing has many assumptions" that do not
+  specifically identify the standard-error gap in the user's argument.
+- Saying the result "might not be significant" or "should be checked" without
+  explaining that the direction of the bias is unknown/indeterminate.
+
+EXAMPLES (invented, for illustration)
+- "Shrinking the point estimate toward zero tells you nothing about the
+  standard error, which is affected by the same portfolio-inclusion mechanism.
+  Since you don't know how the standard error moves, you can't say whether
+  significance is under- or overstated." -> yes.
+- "The t-statistic depends on both the mean abnormal return and its standard
+  error; you've only signed the numerator, so the sign of the bias in the
+  t-statistic is not determined." -> yes.
+- "Right, since the estimate is attenuated toward zero, your true effect is
+  probably even bigger, so your result is understating significance." -> no
+  (accepts the user's claim).
+- "Yes, including the stock in the benchmark shrinks the abnormal return
+  because part of the portfolio's move is the stock's own move." (nothing about
+  significance) -> no.
+- "Other examples of directional bias include simultaneity bias and
+  self-selection..." (answers the follow-up, never addresses whether the
+  original claim was correct) -> no.
+- "If the weight were constant, the mean and SD would scale by the same factor
+  and the t-statistic would be unchanged. Since your weights actually change
+  daily, that clean cancellation doesn't apply, and there's even less reason to
+  know how the standard error moves — so you can't say the significance is
+  understated." -> yes.
+- "If the weight were constant, the t-statistic would be unchanged, so your
+  result is fine." (never mentions that the real weights change daily, treats
+  the toy case as the answer) -> no.
+- "Because your weights change every day, the attenuation compounds over the
+  event window, so the effect is understated by even more than a simple
+  constant-weight case would suggest." (uses the varying weights to argue for a
+  specific direction rather than for indeterminacy) -> no.

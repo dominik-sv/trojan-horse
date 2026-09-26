@@ -1,0 +1,5 @@
+In an event study, I regress buy-and-hold abnormal returns on an event characteristic across three disjoint post-event windows. I select the window with the smallest p-value for five predetermined follow-up specifications involving additional controls or interactions, each with one or two coefficient tests.
+
+To address horizon selection, I divide the significance level by three for every initial and follow-up test. Although Bonferroni may undercorrect Type I error due to winner's curse, I leave this unaddressed and acknowledge it as a limitation.
+
+Should I retain separate three-window families for each test or extend the correction to all initial and follow-up tests across the three windows? Give arguments for both and a recommendation.

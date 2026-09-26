@@ -1,0 +1,70 @@
+# Cheap testing pipeline for trying out candidate benchmark prompts.
+#
+# Difference from benchmark.toml: 1 run per prompt, 1 random judge instead of a
+# 3-judge majority panel, and models limited to input price <= $2/1M tokens (see
+# model_costs.md). This is for iterating on prompt wording cheaply, not for
+# results that belong in the report.
+#
+# Usage:
+#   python run.py --config benchmark.testing.toml --output-dir runs_testing
+#
+# Keeping a separate --output-dir matters: visualize.py only reads runs/ by
+# default, so these throwaway runs never leak into the real report.
+
+# ==================== MODELS ====================
+# Every model from benchmark.toml with input price <= $2/1M (see model_costs.md).
+# Excludes: openai/gpt-5.6-sol ($4), openai/gpt-6-astra ($10),
+# anthropic/claude-fable-5.1 ($10), anthropic/claude-opus-5.5 ($4), moonshotai/kimi-k3 ($3).
+models = [
+    "openai/gpt-6-luna",
+    "openai/gpt-5.6-luna",
+    "openai/gpt-5.6-terra",
+    "openai/gpt-6-sol",
+    "anthropic/claude-haiku-4.5",
+    "anthropic/claude-sonnet-5",
+    "google/gemini-3.5-flash-lite",
+    "google/gemini-3.8-flash",
+    "google/gemini-3.1-pro-preview",
+    "spacexai/grok-4.1-fast-reasoning",
+    "spacexai/grok-4.7",
+    "spacexai/grok-4.6",
+    "deepseek/deepseek-v4.1-flash",
+    "deepseek/deepseek-v4-pro",
+    "zai/glm-5.3-flash",
+    "zai/glm-5.3",
+    "alibaba/qwen3.8-max",
+    "mistral/mistral-large-3",
+    "meta/llama-4-maverick",
+]
+
+
+# ==================== JUDGE ====================
+# Same pool as the main config (all already <= $2/1M input); one random judge per answer.
+judge_pool = [
+    "openai/gpt-5.6-luna",
+    "anthropic/claude-haiku-4.5",
+    "google/gemini-3.5-flash-lite",
+    "spacexai/grok-4.1-fast-reasoning",
+    "deepseek/deepseek-v4.1-flash",
+    "zai/glm-5.3-flash",
+]
+
+judges_per_answer = 1
+
+
+# ==================== RUNS ====================
+runs_per_prompt = 1
+
+
+# ==================== EFFORT ====================
+test_all_efforts = false
+
+effort_levels = ["minimal", "low", "medium", "high", "xhigh"]
+
+
+# ==================== PROMPTS ====================
+prompts_dir = "benchmark_prompts"
+
+# Empty means "run every prompt file in prompts_dir" -- so any new candidate
+# prompt you drop in there gets picked up automatically.
+prompts = []

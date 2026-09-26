@@ -1,0 +1,24 @@
+{
+  "name": "benchmark",
+  "version": "1.0.0",
+  "description": "Sends a set of prompts to a set of GPT models, repeats each several times, has a judge model grade every answer (did it spot the false premise?), and saves everything in a timestamped run folder. No agent framework: one request per (prompt, model, run), plus one judge request per answer.",
+  "main": "index.ts",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "tsx --env-file=.env.local index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "ai": "^6.0.286"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.13"
+  }
+}
