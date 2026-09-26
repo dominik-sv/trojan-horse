@@ -25,6 +25,7 @@ def build_data():
     for r in models_rows:
         models.append({
             "model": r["model"],
+            "provider": r["model"].split("/")[0],
             "judged": int(r["judged"]),
             "spotted": int(r["spotted"]),
             "performance": float(r["performance"]),
@@ -55,112 +56,142 @@ TEMPLATE = """<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>False-Premise LLM Benchmark</title>
+<title>Trojan Horse Benchmark</title>
 <style>
 :root {
-  color-scheme: light;
-  --surface-1: #fcfcfb;
-  --page: #f9f9f7;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #898781;
-  --grid: #e1e0d9;
-  --baseline: #c3c2b7;
-  --border: rgba(11,11,11,0.10);
-  --series-1: #2a78d6;
-  --series-1-light: #cde2fb;
-}
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) {
-    color-scheme: dark;
-    --surface-1: #1a1a19;
-    --page: #0d0d0d;
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #898781;
-    --grid: #2c2c2a;
-    --baseline: #383835;
-    --border: rgba(255,255,255,0.10);
-    --series-1: #3987e5;
-    --series-1-light: #184f95;
-  }
-}
-:root[data-theme="dark"] {
   color-scheme: dark;
-  --surface-1: #1a1a19;
-  --page: #0d0d0d;
-  --text-primary: #ffffff;
-  --text-secondary: #c3c2b7;
-  --text-muted: #898781;
-  --grid: #2c2c2a;
-  --baseline: #383835;
-  --border: rgba(255,255,255,0.10);
-  --series-1: #3987e5;
-  --series-1-light: #184f95;
+  --page: #0a0d14;
+  --surface-1: #12161f;
+  --surface-2: #171c27;
+  --text-primary: #f2f4f8;
+  --text-secondary: #9aa4b8;
+  --text-muted: #6b7488;
+  --grid: #232937;
+  --baseline: #323a4c;
+  --border: rgba(255,255,255,0.08);
+  --accent: #5b8def;
+  --accent-soft: rgba(91,141,239,0.15);
 }
 * { box-sizing: border-box; }
+html, body { height: 100%; }
 body {
   margin: 0;
   background: var(--page);
+  background-image:
+    radial-gradient(circle at 15% 0%, rgba(91,141,239,0.10), transparent 45%),
+    radial-gradient(circle at 85% 10%, rgba(233,148,58,0.08), transparent 40%);
+  background-attachment: fixed;
   color: var(--text-primary);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
-.wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 64px; }
-h1 { font-size: 1.5rem; margin: 0 0 4px; }
-.subtitle { color: var(--text-secondary); font-size: 0.9rem; margin: 0 0 24px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding: 32px 20px 72px; }
+header.top { margin-bottom: 28px; }
+h1 { font-size: 1.7rem; margin: 0 0 6px; letter-spacing: -0.01em; }
+.subtitle { color: var(--text-secondary); font-size: 0.95rem; margin: 0; max-width: 640px; line-height: 1.5; }
+
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 24px 0; }
+.stat-tile {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+}
+.stat-tile .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 8px; }
+.stat-tile .value { font-size: 1.5rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.stat-tile .value.small { font-size: 1.05rem; }
+.stat-tile .value .unit { font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
+.stat-tile .sub { font-size: 0.78rem; color: var(--text-secondary); margin-top: 4px; }
+
+.legend-row {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  margin-bottom: 24px; padding: 14px 16px;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px;
+}
+.legend-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-right: 6px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px 5px 8px; border-radius: 999px; font-size: 0.8rem;
+  border: 1px solid var(--border); background: var(--surface-2);
+  cursor: pointer; user-select: none; transition: opacity 0.15s, border-color 0.15s;
+  color: var(--text-secondary);
+}
+.chip .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.chip.active { color: var(--text-primary); border-color: var(--chip-color, var(--accent)); background: color-mix(in srgb, var(--chip-color, var(--accent)) 16%, var(--surface-2)); }
+.chip.inactive { opacity: 0.45; }
+.chip-all { font-weight: 600; }
+
 .card {
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 20px;
-  margin-bottom: 24px;
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin-bottom: 22px;
 }
-.card h2 { font-size: 1.05rem; margin: 0 0 4px; }
-.card .desc { color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 16px; }
-.bar-row { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
-.bar-label { width: 220px; flex-shrink: 0; font-size: 0.82rem; text-align: right; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bar-track { flex: 1; background: var(--grid); border-radius: 4px; height: 18px; position: relative; }
-.bar-fill { background: var(--series-1); height: 100%; border-radius: 4px; min-width: 2px; }
-.bar-value { font-size: 0.78rem; color: var(--text-secondary); width: 44px; font-variant-numeric: tabular-nums; }
+.card h2 { font-size: 1.05rem; margin: 0 0 4px; font-weight: 650; }
+.card .desc { color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 18px; }
+
+.bar-row { display: flex; align-items: center; gap: 10px; margin: 7px 0; }
+.bar-label { width: 230px; flex-shrink: 0; font-size: 0.82rem; text-align: right; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.bar-label .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.bar-track { flex: 1; background: var(--grid); border-radius: 5px; height: 20px; position: relative; overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 5px; min-width: 3px; transition: width 0.2s; }
+.bar-value { font-size: 0.8rem; color: var(--text-secondary); width: 44px; font-variant-numeric: tabular-nums; }
+.bar-row.hidden { display: none; }
+
 table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-th, td { text-align: right; padding: 6px 10px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 8px 12px; border-bottom: 1px solid var(--grid); font-variant-numeric: tabular-nums; }
 th:first-child, td:first-child { text-align: left; font-variant-numeric: normal; }
-th { color: var(--text-muted); font-weight: 600; cursor: pointer; user-select: none; }
+th { color: var(--text-muted); font-weight: 600; cursor: pointer; user-select: none; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; }
 th:hover { color: var(--text-primary); }
-tbody tr:hover { background: var(--series-1-light); }
-.scatter-wrap { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
-svg text { fill: var(--text-muted); font-size: 10px; }
-.axis-title { fill: var(--text-secondary) !important; font-size: 11px !important; }
-.dot { fill: var(--series-1); stroke: var(--surface-1); stroke-width: 1.5; cursor: pointer; }
-.dot:hover { fill: var(--text-primary); }
+tbody tr:hover { background: var(--surface-2); }
+tr.hidden-row { display: none; }
+.model-cell { display: flex; align-items: center; gap: 8px; }
+.model-cell .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+.scatter-stack { display: flex; flex-direction: column; gap: 20px; }
+svg text { fill: var(--text-muted); font-size: 11px; }
+.axis-title { fill: var(--text-secondary) !important; font-size: 12px !important; font-weight: 600; }
+.dot-pt { stroke: var(--surface-1); stroke-width: 1.5; cursor: pointer; }
+.dot-hit { fill: transparent; cursor: pointer; }
+.frontier-line { fill: none; stroke: var(--text-secondary); stroke-width: 1.5; stroke-dasharray: 5 4; opacity: 0.6; }
+.frontier-pt { fill: none; stroke-width: 2; }
+
 .tooltip {
   position: fixed;
   pointer-events: none;
-  background: var(--text-primary);
-  color: var(--surface-1);
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-size: 0.78rem;
+  background: #1c2230;
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.8rem;
   opacity: 0;
-  transform: translate(-50%, -130%);
+  transform: translate(-50%, -125%);
   white-space: nowrap;
   z-index: 10;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
 }
-.heat-cell { padding: 4px 8px; text-align: center; border-radius: 4px; font-variant-numeric: tabular-nums; }
-.meta-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
-.pill { background: var(--grid); color: var(--text-secondary); border-radius: 999px; padding: 3px 10px; font-size: 0.78rem; }
-footer { color: var(--text-muted); font-size: 0.78rem; text-align: center; margin-top: 32px; }
-a { color: var(--series-1); }
+.tooltip b { color: var(--text-primary); }
+.tooltip .tt-val { font-variant-numeric: tabular-nums; }
+.tooltip .tt-row { color: var(--text-secondary); }
+.tooltip .tt-row .tt-val { color: var(--text-primary); font-weight: 600; }
+
+.heat-cell { padding: 5px 9px; text-align: center; border-radius: 5px; font-variant-numeric: tabular-nums; display: inline-block; min-width: 44px; }
+
+footer { color: var(--text-muted); font-size: 0.78rem; text-align: center; margin-top: 36px; }
+a { color: var(--accent); }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>False-Premise LLM Benchmark</h1>
-  <p class="subtitle">Detection rate for planted false premises, graded by a random panel of judge models with majority vote.</p>
+  <header class="top">
+    <h1>Trojan Horse Benchmark</h1>
+    <p class="subtitle">Detection rate for planted false premises across frontier models, graded by a random panel of judge models with majority vote.</p>
+  </header>
 
-  <div class="card">
-    <div class="meta-pills" id="meta-pills"></div>
-  </div>
+  <div class="stat-row" id="stat-row"></div>
+
+  <div class="legend-row" id="provider-legend"></div>
 
   <div class="card">
     <h2>Detection rate by model</h2>
@@ -169,9 +200,9 @@ a { color: var(--series-1); }
   </div>
 
   <div class="card">
-    <h2>Performance vs. cost, tokens, latency</h2>
-    <p class="desc">Each dot is one model. Hover for details.</p>
-    <div class="scatter-wrap">
+    <h2>Performance vs. cost, tokens, and latency</h2>
+    <p class="desc">Each dot is one model, colored by provider. The dashed line traces the efficiency frontier: models no other model beats on both axes at once.</p>
+    <div class="scatter-stack">
       <div id="scatter-cost"></div>
       <div id="scatter-tokens"></div>
       <div id="scatter-latency"></div>
@@ -180,7 +211,7 @@ a { color: var(--series-1); }
 
   <div class="card">
     <h2>Detection rate by prompt</h2>
-    <p class="desc">One cell per model x prompt, colored by detection rate (darker = higher).</p>
+    <p class="desc">One cell per model x prompt, colored by detection rate (brighter = higher).</p>
     <div id="heatmap" style="overflow-x:auto;"></div>
   </div>
 
@@ -197,9 +228,34 @@ a { color: var(--series-1); }
 <script>
 const DATA = __DATA__;
 
+// Fixed provider -> color mapping so colors stay stable across rebuilds.
+const PROVIDER_COLORS = {
+  openai:      "#3987e5",
+  anthropic:   "#e9943a",
+  google:      "#2fbf8f",
+  spacexai:    "#e0b400",
+  deepseek:    "#e2679a",
+  zai:         "#3fae4a",
+  alibaba:     "#9085e9",
+  moonshotai:  "#e66767",
+  mistral:     "#b9834a",
+  meta:        "#7c93a0",
+};
+const FALLBACK_COLORS = ["#5b8def", "#e9943a", "#2fbf8f", "#e0b400", "#e2679a"];
+let fallbackIdx = 0;
+function colorFor(provider) {
+  if (!PROVIDER_COLORS[provider]) {
+    PROVIDER_COLORS[provider] = FALLBACK_COLORS[fallbackIdx++ % FALLBACK_COLORS.length];
+  }
+  return PROVIDER_COLORS[provider];
+}
+
+const providers = [...new Set(DATA.models.map(m => m.provider))].sort();
+const activeProviders = new Set(providers);
+
 function shortName(m) { return m.split("/")[1] || m; }
-function providerOf(m) { return m.split("/")[0]; }
 function fmtPct(x) { return (x * 100).toFixed(0) + "%"; }
+function visibleModels() { return DATA.models.filter(m => activeProviders.has(m.provider)); }
 
 const tooltip = document.getElementById("tooltip");
 function showTip(evt, html) {
@@ -210,103 +266,211 @@ function showTip(evt, html) {
 }
 function hideTip() { tooltip.style.opacity = 0; }
 
-// ---- meta pills ----
-(function renderMeta() {
-  const el = document.getElementById("meta-pills");
-  const n = DATA.models.length;
-  const totalJudged = DATA.models.reduce((s, m) => s + m.judged, 0);
-  const pills = [
-    n + " models",
-    DATA.prompts.length + " prompts",
-    totalJudged + " graded answers",
-  ];
-  el.innerHTML = pills.map(p => `<span class="pill">${p}</span>`).join("");
+const renderers = [];
+function rerenderAll() { renderers.forEach(fn => fn()); }
+
+// ---- provider legend ----
+(function renderLegend() {
+  const el = document.getElementById("provider-legend");
+  function draw() {
+    const allOn = activeProviders.size === providers.length;
+    let html = '<span class="legend-title">Providers</span>';
+    html += `<span class="chip chip-all" id="chip-all">${allOn ? "Clear all" : "Select all"}</span>`;
+    providers.forEach(p => {
+      const c = colorFor(p);
+      const active = activeProviders.has(p);
+      html += `<span class="chip ${active ? 'active' : 'inactive'}" data-provider="${p}" style="--chip-color:${c}"><span class="dot" style="background:${c}"></span>${p}</span>`;
+    });
+    el.innerHTML = html;
+    el.querySelectorAll(".chip[data-provider]").forEach(chip => {
+      chip.addEventListener("click", () => {
+        const p = chip.dataset.provider;
+        if (activeProviders.has(p)) activeProviders.delete(p); else activeProviders.add(p);
+        draw();
+        rerenderAll();
+      });
+    });
+    el.querySelector("#chip-all").addEventListener("click", () => {
+      if (activeProviders.size === providers.length) { activeProviders.clear(); }
+      else { providers.forEach(p => activeProviders.add(p)); }
+      draw();
+      rerenderAll();
+    });
+  }
+  draw();
+})();
+
+// ---- stat tiles ----
+(function renderStats() {
+  const el = document.getElementById("stat-row");
+  function draw() {
+    const vis = visibleModels();
+    const totalJudged = vis.reduce((s, m) => s + m.judged, 0);
+    const top = [...vis].sort((a, b) => b.performance - a.performance)[0];
+    const cheapestPerfect = [...vis].filter(m => m.performance >= 0.99).sort((a, b) => a.cost_per_pass_usd - b.cost_per_pass_usd)[0];
+    const tiles = [
+      { label: "Models shown", value: vis.length },
+      { label: "Prompts", value: DATA.prompts.length },
+      { label: "Graded answers", value: totalJudged },
+      { label: "Top detector", value: top ? fmtPct(top.performance) : "-", sub: top ? shortName(top.model) : "" },
+      { label: "Cheapest at 100%", value: cheapestPerfect ? "$" + cheapestPerfect.cost_per_pass_usd.toFixed(3) : "none", sub: cheapestPerfect ? shortName(cheapestPerfect.model) : "no model hit 100%" },
+    ];
+    el.innerHTML = tiles.map(t => `
+      <div class="stat-tile">
+        <div class="label">${t.label}</div>
+        <div class="value ${String(t.value).length > 6 ? 'small' : ''}">${t.value}</div>
+        ${t.sub ? `<div class="sub">${t.sub}</div>` : ""}
+      </div>`).join("");
+  }
+  renderers.push(draw);
+  draw();
 })();
 
 // ---- bar chart ----
 (function renderBars() {
   const el = document.getElementById("bar-chart");
-  const max = 1.0;
-  el.innerHTML = DATA.models.map(m => `
-    <div class="bar-row">
-      <div class="bar-label" title="${m.model}">${shortName(m.model)}</div>
-      <div class="bar-track">
-        <div class="bar-fill" style="width:${(m.performance / max * 100).toFixed(1)}%"></div>
-      </div>
-      <div class="bar-value">${fmtPct(m.performance)}</div>
-    </div>
-  `).join("");
+  function draw() {
+    const rows = [...DATA.models].sort((a, b) => b.performance - a.performance);
+    el.innerHTML = rows.map(m => {
+      const c = colorFor(m.provider);
+      const hidden = activeProviders.has(m.provider) ? "" : "hidden";
+      return `
+      <div class="bar-row ${hidden}">
+        <div class="bar-label" title="${m.model}"><span class="dot" style="background:${c}"></span>${shortName(m.model)}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${(m.performance * 100).toFixed(1)}%; background:${c};"></div>
+        </div>
+        <div class="bar-value">${fmtPct(m.performance)}</div>
+      </div>`;
+    }).join("");
+  }
+  renderers.push(draw);
+  draw();
 })();
 
-// ---- scatter charts ----
-function scatter(containerId, xKey, xLabel, xFmt) {
-  const el = document.getElementById(containerId);
-  const W = 320, H = 260, PAD = 40;
-  const xs = DATA.models.map(m => m[xKey]);
-  const xMax = Math.max(...xs) * 1.1 || 1;
-  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
-  svg.setAttribute("width", "100%");
-
-  function sx(v) { return PAD + (v / xMax) * (W - PAD - 15); }
-  function sy(v) { return H - PAD - v * (H - PAD - 15); }
-
-  let inner = "";
-  // gridlines + y axis ticks (0, 0.5, 1)
-  [0, 0.25, 0.5, 0.75, 1].forEach(t => {
-    inner += `<line x1="${PAD}" y1="${sy(t)}" x2="${W - 10}" y2="${sy(t)}" stroke="var(--grid)" stroke-width="1"/>`;
-    inner += `<text x="${PAD - 6}" y="${sy(t) + 3}" text-anchor="end">${(t*100).toFixed(0)}%</text>`;
+// ---- scatter charts with pareto frontier ----
+function computeFrontier(points, xKey) {
+  const sorted = [...points].sort((a, b) => a[xKey] - b[xKey]);
+  const frontier = [];
+  let runningMax = -Infinity;
+  sorted.forEach(p => {
+    if (p.performance > runningMax) {
+      frontier.push(p);
+      runningMax = p.performance;
+    }
   });
-  // x axis ticks
-  [0, 0.5, 1].forEach(f => {
-    const v = xMax * f;
-    inner += `<text x="${sx(v)}" y="${H - PAD + 14}" text-anchor="middle">${xFmt(v)}</text>`;
-  });
-  inner += `<line x1="${PAD}" y1="${H-PAD}" x2="${W-10}" y2="${H-PAD}" stroke="var(--baseline)" stroke-width="1"/>`;
-  inner += `<text class="axis-title" x="${(W)/2}" y="${H-4}" text-anchor="middle">${xLabel}</text>`;
-
-  svg.innerHTML = inner;
-
-  DATA.models.forEach(m => {
-    const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    c.setAttribute("cx", sx(m[xKey]));
-    c.setAttribute("cy", sy(m.performance));
-    c.setAttribute("r", 5);
-    c.classList.add("dot");
-    c.addEventListener("mousemove", (e) => showTip(e, `<b>${m.model}</b><br>${xLabel}: ${xFmt(m[xKey])}<br>detection: ${fmtPct(m.performance)}`));
-    c.addEventListener("mouseleave", hideTip);
-    svg.appendChild(c);
-  });
-
-  el.appendChild(svg);
+  return frontier;
 }
 
-scatter("scatter-cost", "cost_per_pass_usd", "cost per pass ($)", v => "$" + v.toFixed(2));
-scatter("scatter-tokens", "avg_output_tokens", "avg output tokens", v => v.toFixed(0));
-scatter("scatter-latency", "avg_latency_seconds", "avg latency (s)", v => v.toFixed(0) + "s");
+function scatterChart(containerId, xKey, xLabel, xFmt) {
+  const el = document.getElementById(containerId);
+  const W = 1000, H = 380, PAD_L = 56, PAD_B = 44, PAD_T = 16, PAD_R = 20;
+
+  function draw() {
+    const pts = visibleModels();
+    el.innerHTML = "";
+    if (pts.length === 0) { el.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No providers selected.</p>'; return; }
+
+    const xs = pts.map(m => m[xKey]);
+    const xMax = Math.max(...xs) * 1.08 || 1;
+
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    svg.setAttribute("width", "100%");
+    svg.setAttribute("preserveAspectRatio", "xMinYMin meet");
+    svg.style.display = "block";
+
+    function sx(v) { return PAD_L + (v / xMax) * (W - PAD_L - PAD_R); }
+    function sy(v) { return H - PAD_B - v * (H - PAD_B - PAD_T); }
+
+    let inner = "";
+    [0, 0.25, 0.5, 0.75, 1].forEach(t => {
+      inner += `<line x1="${PAD_L}" y1="${sy(t)}" x2="${W - PAD_R}" y2="${sy(t)}" stroke="var(--grid)" stroke-width="1"/>`;
+      inner += `<text x="${PAD_L - 8}" y="${sy(t) + 4}" text-anchor="end">${(t*100).toFixed(0)}%</text>`;
+    });
+    for (let f = 0; f <= 1.0001; f += 0.2) {
+      const v = xMax * f;
+      inner += `<text x="${sx(v)}" y="${H - PAD_B + 18}" text-anchor="middle">${xFmt(v)}</text>`;
+    }
+    inner += `<line x1="${PAD_L}" y1="${H-PAD_B}" x2="${W-PAD_R}" y2="${H-PAD_B}" stroke="var(--baseline)" stroke-width="1"/>`;
+    inner += `<text class="axis-title" x="${(W)/2}" y="${H-4}" text-anchor="middle">${xLabel}</text>`;
+    inner += `<text class="axis-title" x="${-H/2}" y="16" text-anchor="middle" transform="rotate(-90)">detection rate</text>`;
+
+    const frontier = computeFrontier(pts, xKey);
+    if (frontier.length > 1) {
+      const path = frontier.map((p, i) => `${i === 0 ? "M" : "L"}${sx(p[xKey])},${sy(p.performance)}`).join(" ");
+      inner += `<path class="frontier-line" d="${path}"/>`;
+    }
+
+    svg.innerHTML = inner;
+
+    const frontierSet = new Set(frontier.map(p => p.model));
+    pts.forEach(m => {
+      const c = colorFor(m.provider);
+      const cx = sx(m[xKey]), cy = sy(m.performance);
+      const onFrontier = frontierSet.has(m.model);
+
+      const hit = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      hit.setAttribute("cx", cx); hit.setAttribute("cy", cy); hit.setAttribute("r", 13);
+      hit.classList.add("dot-hit");
+
+      const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      dot.setAttribute("cx", cx); dot.setAttribute("cy", cy);
+      dot.setAttribute("r", onFrontier ? 6.5 : 5);
+      dot.setAttribute("fill", c);
+      dot.classList.add("dot-pt");
+      if (onFrontier) { dot.style.filter = `drop-shadow(0 0 4px ${c})`; }
+
+      const tip = (e) => showTip(e, `
+        <div><b>${m.model}</b></div>
+        <div class="tt-row">${xLabel}: <span class="tt-val">${xFmt(m[xKey])}</span></div>
+        <div class="tt-row">detection: <span class="tt-val">${fmtPct(m.performance)}</span></div>
+        ${onFrontier ? '<div class="tt-row" style="color:var(--accent)">on efficiency frontier</div>' : ''}
+      `);
+      hit.addEventListener("mousemove", tip);
+      hit.addEventListener("mouseleave", hideTip);
+
+      svg.appendChild(hit);
+      svg.appendChild(dot);
+    });
+
+    el.appendChild(svg);
+  }
+  renderers.push(draw);
+  draw();
+}
+
+scatterChart("scatter-cost", "cost_per_pass_usd", "cost per pass ($)", v => "$" + v.toFixed(2));
+scatterChart("scatter-tokens", "avg_output_tokens", "avg output tokens", v => v.toFixed(0));
+scatterChart("scatter-latency", "avg_latency_seconds", "avg latency (s)", v => v.toFixed(0) + "s");
 
 // ---- heatmap ----
 (function renderHeatmap() {
   const el = document.getElementById("heatmap");
-  const prompts = DATA.prompts;
-  let html = '<table><thead><tr><th>model</th>' + prompts.map(p => `<th>${p}</th>`).join("") + '</tr></thead><tbody>';
-  DATA.models.forEach(m => {
-    html += `<tr><td>${shortName(m.model)}</td>`;
-    prompts.forEach(p => {
-      const cell = (DATA.byPrompt[m.model] || {})[p];
-      const rate = cell ? cell.rate : null;
-      if (rate === null) {
-        html += `<td>-</td>`;
-      } else {
-        const bg = `color-mix(in srgb, var(--series-1) ${(rate*100).toFixed(0)}%, var(--surface-1))`;
-        const fg = rate > 0.55 ? "#fff" : "var(--text-primary)";
-        html += `<td><span class="heat-cell" style="background:${bg}; color:${fg};">${fmtPct(rate)}</span></td>`;
-      }
+  function draw() {
+    const prompts = DATA.prompts;
+    const rows = visibleModels();
+    let html = '<table><thead><tr><th>model</th>' + prompts.map(p => `<th>${p}</th>`).join("") + '</tr></thead><tbody>';
+    rows.forEach(m => {
+      const c = colorFor(m.provider);
+      html += `<tr><td><div class="model-cell"><span class="dot" style="background:${c}"></span>${shortName(m.model)}</div></td>`;
+      prompts.forEach(p => {
+        const cell = (DATA.byPrompt[m.model] || {})[p];
+        const rate = cell ? cell.rate : null;
+        if (rate === null) {
+          html += `<td>-</td>`;
+        } else {
+          const bg = `color-mix(in srgb, ${c} ${(rate*100).toFixed(0)}%, var(--surface-2))`;
+          html += `<td><span class="heat-cell" style="background:${bg}; color:${rate > 0.5 ? '#fff' : 'var(--text-secondary)'};">${fmtPct(rate)}</span></td>`;
+        }
+      });
+      html += "</tr>";
     });
-    html += "</tr>";
-  });
-  html += "</tbody></table>";
-  el.innerHTML = html;
+    html += "</tbody></table>";
+    el.innerHTML = html;
+  }
+  renderers.push(draw);
+  draw();
 })();
 
 // ---- full table ----
@@ -324,7 +488,7 @@ scatter("scatter-latency", "avg_latency_seconds", "avg latency (s)", v => v.toFi
   let sortKey = "performance", sortDir = -1;
 
   function draw() {
-    const rows = [...DATA.models].sort((a, b) => {
+    const rows = visibleModels().sort((a, b) => {
       const va = cols.find(c => c[0] === sortKey)[2](a);
       const vb = cols.find(c => c[0] === sortKey)[2](b);
       if (va < vb) return -1 * sortDir;
@@ -335,8 +499,10 @@ scatter("scatter-latency", "avg_latency_seconds", "avg latency (s)", v => v.toFi
       `<th data-key="${key}">${label}${sortKey === key ? (sortDir === 1 ? " ^" : " v") : ""}</th>`
     ).join("") + "</tr></thead><tbody>";
     rows.forEach(m => {
-      html += "<tr>" + cols.map(([key, label, get, fmt]) => {
+      const c = colorFor(m.provider);
+      html += "<tr>" + cols.map(([key, label, get, fmt], i) => {
         const v = get(m);
+        if (i === 0) return `<td><div class="model-cell"><span class="dot" style="background:${c}"></span>${v}</div></td>`;
         return `<td>${fmt ? fmt(v) : v}</td>`;
       }).join("") + "</tr>";
     });
@@ -350,6 +516,7 @@ scatter("scatter-latency", "avg_latency_seconds", "avg latency (s)", v => v.toFi
       });
     });
   }
+  renderers.push(draw);
   draw();
 })();
 </script>
