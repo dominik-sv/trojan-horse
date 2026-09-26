@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>TROJAN HORSE :: INTRUSION DETECTION REPORT</title>
+<style>
+@font-face { font-family: local-mono; src: local("Consolas"); }
+
+:root{
+  --bg: #030704;
+  --bg2: #050b06;
+  --fg: #35ff6b;
+  --fg-dim: #1c8f3c;
+  --fg-bright: #b6ffcf;
+  --amber: #ffb000;
+  --red: #ff3b30;
+  --border: #14a83c;
+  --scan-opacity: 0.06;
+}
+
+*{ box-sizing: border-box; }
+
+html,body{
+  background: var(--bg);
+  color: var(--fg);
+  margin:0;
+  padding:0;
+  min-height:100%;
+}
+
+body{
+  font-family: "Consolas","Courier New",monospace;
+  font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: 0.2px;
+  overflow-x: hidden;
+}
+
+/* CRT overlay */
+.crt::before{
+  content:"";
+  position: fixed;
+  inset:0;
+  pointer-events:none;
+  z-index: 9998;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0,0,0,0) 0px,
+    rgba(0,0,0,0) 1px,
+    rgba(0,0,0,var(--scan-opacity)) 2px,
+    rgba(0,0,0,var(--scan-opacity)) 3px
+  );
+  mix-blend-mode: multiply;
+}
+.crt::after{
+  content:"";
+  position: fixed;
+  inset:0;
+  pointer-events:none;
+  z-index: 9999;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0) 60%, rgba(0,0,0,0.35) 100%);
+}
+
+@keyframes flicker{
+  0%,100%{ opacity: 1; }
+  92%{ opacity: 1; }
+  93%{ opacity: 0.86; }
+  94%{ opacity: 1; }
+  96%{ opacity: 0.9; }
+  97%{ opacity: 1; }
+}
+.screen{ animation: flicker 7s infinite; }
+
+::selection{ background: var(--fg); color: #000; }
+
+a{ color: var(--fg-bright); }
+
+/* ---------- Boot sequence ---------- */
+#boot{
+  position: fixed;
+  inset:0;
+  background: var(--bg);
+  color: var(--fg);
+  z-index: 10000;
+  padding: 28px 32px;
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow: hidden;
+}
+#boot .cursor{
+  display:inline-block;
+  width:8px; height:14px;
+  background: var(--fg);
+  vertical-align: text-bottom;
+  animation: blink 1s step-end infinite;
+}
+@keyframes blink{ 50%{ opacity:0; } }
+#skipboot{
+  position:fixed; bottom:18px; right:24px; z-index:10001;
+  color: var(--fg-dim); border:1px solid var(--fg-dim);
+  background:transparent; padding:6px 12px; font-family:inherit; font-size:12px;
+  cursor:pointer;
+}
+#skipboot:hover{ color:var(--fg-bright); border-color:var(--fg-bright); }
+
+/* ---------- layout ---------- */
+.wrap{
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 26px 20px 80px;
+}
+
+.ascii-logo{
+  color: var(--fg-bright);
+  text-shadow: 0 0 6px rgba(53,255,107,0.55), 0 0 14px rgba(53,255,107,0.25);
+  font-size: 11px;
+  line-height: 1.15;
+  white-space: pre;
+  overflow-x: auto;
+  margin-bottom: 4px;
+}
+
+.subtitle-row{
+  display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px;
+  border-bottom: 1px dashed var(--fg-dim);
+  padding-bottom: 10px;
+  margin-bottom: 18px;
+}
+.subtitle{ color: var(--fg-dim); font-size:12px; }
+.clock{ color: var(--amber); font-size:12px; }
+
+.prompt-line{ color: var(--fg-dim); margin: 2px 0 14px; }
+.prompt-line .p{ color: var(--fg-bright); }
+
+/* section headers as ascii boxes */
+.box-title{
+  color: var(--fg-bright);
+  font-weight: bold;
+  margin: 30px 0 10px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+.box-title::before{ content:"┌─["; color: var(--border); }
+.box-title::after{ content:"]"+"─".repeat(0); color: var(--border); }
+.box-title .tag{ }
+.box-rule{
+  border:none;
+  border-top: 1px solid var(--border);
+  margin: 2px 0 16px;
+  opacity: 0.6;
+}
+
+/* stat tiles */
+.stats-grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px,1fr));
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.stat{
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+  background: linear-gradient(180deg, rgba(53,255,107,0.05), rgba(53,255,107,0.01));
+  position: relative;
+}
+.stat::before{
+  content:"◆"; color: var(--fg-dim); position:absolute; top:8px; right:10px; font-size:10px;
+}
+.stat .label{ color: var(--fg-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+.stat .value{ color: var(--fg-bright); font-size: 26px; font-weight:bold; margin-top:4px; }
+.stat .value.amber{ color: var(--amber); }
+.stat .value.red{ color: var(--red); }
+.stat .sub{ color: var(--fg-dim); font-size: 11px; margin-top:2px; }
+
+/* controls */
+.controls{
+  display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom: 14px;
+}
+.controls label{ color: var(--fg-dim); font-size: 12px; margin-right:4px; }
+select, input[type=text]{
+  background: #06120a;
+  color: var(--fg-bright);
+  border: 1px solid var(--border);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+select:focus, input:focus{ outline: 1px solid var(--fg-bright); }
+button.btn{
+  background: transparent;
+  color: var(--fg);
+  border: 1px solid var(--border);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+button.btn:hover{ background: rgba(53,255,107,0.12); color: var(--fg-bright); }
+button.btn.active{ background: rgba(53,255,107,0.18); color: var(--fg-bright); border-color: var(--fg-bright); }
+
+/* table */
+.tbl-wrap{
+  overflow-x: auto;
+  border: 1px solid var(--border);
+}
+table.term{
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  min-width: 920px;
+}
+table.term thead th{
+  text-align: left;
+  color: var(--bg);
+  background: var(--fg);
+  padding: 7px 10px;
+  font-weight: bold;
+  position: sticky; top:0;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+table.term thead th:hover{ background: var(--fg-bright); }
+table.term thead th .arrow{ opacity:0.6; font-size:10px; }
+table.term tbody tr{
+  border-bottom: 1px solid rgba(20,168,60,0.25);
+  cursor: pointer;
+}
+table.term tbody tr:hover{
+  background: rgba(53,255,107,0.09);
+}
+table.term tbody tr.selected{
+  background: rgba(53,255,107,0.18);
+  outline: 1px solid var(--fg-bright);
+}
+table.term td{
+  padding: 6px 10px;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+td.rank{ color: var(--fg-dim); }
+td.model{ color: var(--fg-bright); }
+td.provider{ color: var(--fg-dim); font-size:11px; text-transform: uppercase; }
+.bar-cell{ display:flex; align-items:center; gap:8px; min-width: 220px; }
+.bar-track{ font-family: inherit; letter-spacing: 0; white-space:pre; }
+.pct{ min-width: 42px; text-align:right; display:inline-block; }
+.verdict{ font-weight:bold; padding: 1px 6px; border:1px solid currentColor; font-size: 10.5px; }
+.verdict.caught{ color: var(--fg-bright); }
+.verdict.evaded{ color: var(--red); }
+.verdict.mixed{ color: var(--amber); }
+.mono-num{ text-align:right; }
+
+/* detail panel */
+#detail{
+  border: 1px solid var(--border);
+  padding: 16px 18px;
+  margin-top: 20px;
+  background: rgba(53,255,107,0.03);
+  display:none;
+}
+#detail.show{ display:block; }
+#detail h3{ margin:0 0 4px; color: var(--fg-bright); font-size:15px; }
+#detail .id{ color: var(--fg-dim); font-size: 11px; margin-bottom: 12px; }
+#detail .grid{
+  display:grid; grid-template-columns: repeat(auto-fit,minmax(150px,1fr)); gap: 14px;
+  margin-bottom: 12px;
+}
+#detail .grid div .k{ color: var(--fg-dim); font-size: 10.5px; text-transform: uppercase; }
+#detail .grid div .v{ color: var(--fg-bright); font-size: 18px; }
+#detail .traceline{ color: var(--fg-dim); font-size: 12px; }
+#detail .traceline b{ color: var(--fg); }
+#detail .closebtn{ float:right; cursor:pointer; color: var(--fg-dim); }
+#detail .closebtn:hover{ color: var(--red); }
+
+/* scatter chart */
+.chartbox{
+  border: 1px solid var(--border);
+  padding: 14px;
+  position: relative;
+}
+canvas#scatter{ width: 100%; height: 460px; display:block; cursor: crosshair; }
+#tooltip{
+  position: absolute;
+  pointer-events: none;
+  background: #010a03;
+  border: 1px solid var(--fg-bright);
+  color: var(--fg-bright);
+  font-size: 11px;
+  padding: 6px 8px;
+  white-space: nowrap;
+  z-index: 20;
+  display:none;
+}
+
+/* footer */
+footer{
+  margin-top: 40px;
+  color: var(--fg-dim);
+  font-size: 11px;
+  border-top: 1px dashed var(--fg-dim);
+  padding-top: 10px;
+}
+.blinkcursor{ display:inline-block; width:7px; height:12px; background: var(--fg); animation: blink 1s step-end infinite; vertical-align: middle; }
+
+.legend-dot{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; }
+
+::-webkit-scrollbar{ height:10px; width:10px; }
+::-webkit-scrollbar-track{ background: #050b06; }
+::-webkit-scrollbar-thumb{ background: var(--border); }
+
+@media (max-width: 640px){
+  .ascii-logo{ font-size: 6.2px; }
+  body{ font-size: 13px; }
+}
+</style>
+</head>
+<body class="crt">
+
+<div id="boot">
+<div id="bootlines"></div>
+</div>
+<button id="skipboot">[ SKIP BOOT // press any key ]</button>
+
+<div class="screen" id="main" style="display:none;">
+<div class="wrap">
+
+  <pre class="ascii-logo" id="logo"></pre>
+
+  <div class="subtitle-row">
+    <div class="subtitle">// FALSE-PREMISE INTRUSION DETECTION SYSTEM &nbsp;&mdash;&nbsp; PUBLIC AUDIT REPORT</div>
+    <div class="clock" id="clock">SESSION: LOCAL // STATUS: <span style="color:var(--fg-bright)">ONLINE</span></div>
+  </div>
+
+  <div class="prompt-line"><span class="p">root@trojan-horse</span>:~$ cat mission.txt</div>
+  <div style="color:var(--fg-dim); margin-bottom:10px; max-width: 860px;">
+    Each target model was served a question with a <span style="color:var(--fg-bright)">payload</span> hidden inside it &mdash;
+    a false premise smuggled through the front door, trojan-style. A detection is logged only when the model
+    <span style="color:var(--fg-bright)">catches and neutralizes</span> the payload instead of executing on it.
+    20 models. 4 distinct prompts. 400 graded answer-passes. Panel-judged, majority vote, 3 judges per answer,
+    never from the answer's own vendor.
+  </div>
+
+  <div class="box-title"><span class="tag">SYSTEM SUMMARY</span></div>
+  <hr class="box-rule"/>
+  <div class="stats-grid" id="statsGrid"></div>
+
+  <div class="box-title"><span class="tag">TARGET ROSTER // sorted by detection rate</span></div>
+  <hr class="box-rule"/>
+  <div class="controls">
+    <label>filter:</label>
+    <input type="text" id="search" placeholder="model or provider…" />
+    <label>provider:</label>
+    <select id="providerFilter"><option value="">ALL</option></select>
+    <button class="btn" id="resetBtn">[ RESET ]</button>
+    <span style="color:var(--fg-dim); font-size:11px; margin-left:auto;">click a row for full trace &darr;</span>
+  </div>
+  <div class="tbl-wrap">
+    <table class="term" id="table">
+      <thead>
+        <tr>
+          <th data-key="rank">RANK</th>
+          <th data-key="model">MODEL</th>
+          <th data-key="provider">PROVIDER</th>
+          <th data-key="performance">DETECTION RATE</th>
+          <th data-key="avg_output_tokens" class="mono-num">TOKENS</th>
+          <th data-key="avg_latency_seconds" class="mono-num">LATENCY(s)</th>
+          <th data-key="cost_per_pass_usd" class="mono-num">COST/PASS</th>
+          <th data-key="verdict">VERDICT</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div id="detail">
+    <span class="closebtn" id="closeDetail">[ x close ]</span>
+    <h3 id="dTitle">-</h3>
+    <div class="id" id="dSub">-</div>
+    <div class="grid" id="dGrid"></div>
+    <div class="traceline" id="dTrace"></div>
+  </div>
+
+  <div class="box-title"><span class="tag">CORRELATION SCAN // detection rate vs. cost / tokens / latency</span></div>
+  <hr class="box-rule"/>
+  <div class="controls">
+    <label>x-axis:</label>
+    <button class="btn active" data-axis="cost">COST/PASS ($, log)</button>
+    <button class="btn" data-axis="tokens">OUTPUT TOKENS (log)</button>
+    <button class="btn" data-axis="latency">LATENCY (s, log)</button>
+  </div>
+  <div class="chartbox">
+    <canvas id="scatter" width="1100" height="460"></canvas>
+    <div id="tooltip"></div>
+  </div>
+  <div style="color:var(--fg-dim); font-size:11px; margin-top:8px;">
+    <span class="legend-dot" style="background:#35ff6b;"></span>caught the trojan (&ge;50%)
+    &nbsp;&nbsp;<span class="legend-dot" style="background:#ffb000;"></span>partial (1&ndash;49%)
+    &nbsp;&nbsp;<span class="legend-dot" style="background:#ff3b30;"></span>fully compromised (0%)
+    &nbsp;&nbsp;&mdash;&nbsp;y-axis = detection rate %, dot size = judged answers
+  </div>
+
+  <footer>
+    <div>root@trojan-horse:~$ <span id="footerLine"></span><span class="blinkcursor"></span></div>
+    <div style="margin-top:6px;">Trojan Horse Benchmark &mdash; false-premise LLM audit. Data embedded inline, no network calls. Rendered client-side.</div>
+  </footer>
+
+</div>
+</div>
+
+<script>
+/* ============================ DATA ============================ */
+const RAW = [
+ {effort:"default",model:"alibaba/qwen3.8-max",judged:20,spotted:9,performance:0.450,avg_output_tokens:17439,avg_latency_seconds:133.3,cost_per_pass_usd:0.41940},
+ {effort:"default",model:"anthropic/claude-fable-5.1",judged:20,spotted:10,performance:0.500,avg_output_tokens:2783,avg_latency_seconds:40.3,cost_per_pass_usd:0.57119},
+ {effort:"default",model:"anthropic/claude-haiku-4.5",judged:20,spotted:0,performance:0.000,avg_output_tokens:638,avg_latency_seconds:8.3,cost_per_pass_usd:0.01379},
+ {effort:"default",model:"anthropic/claude-opus-5.5",judged:20,spotted:19,performance:0.950,avg_output_tokens:2776,avg_latency_seconds:30.5,cost_per_pass_usd:0.22788},
+ {effort:"default",model:"anthropic/claude-sonnet-5",judged:20,spotted:0,performance:0.000,avg_output_tokens:2778,avg_latency_seconds:30.3,cost_per_pass_usd:0.11403},
+ {effort:"default",model:"deepseek/deepseek-v4-pro",judged:20,spotted:3,performance:0.150,avg_output_tokens:7750,avg_latency_seconds:87.5,cost_per_pass_usd:0.06160},
+ {effort:"default",model:"deepseek/deepseek-v4.1-flash",judged:20,spotted:3,performance:0.150,avg_output_tokens:8526,avg_latency_seconds:54.6,cost_per_pass_usd:0.03416},
+ {effort:"default",model:"google/gemini-3.1-pro-preview",judged:20,spotted:0,performance:0.000,avg_output_tokens:2407,avg_latency_seconds:20.7,cost_per_pass_usd:0.11742},
+ {effort:"default",model:"google/gemini-3.5-flash-lite",judged:20,spotted:0,performance:0.000,avg_output_tokens:749,avg_latency_seconds:4.3,cost_per_pass_usd:0.00778},
+ {effort:"default",model:"google/gemini-3.8-flash",judged:20,spotted:0,performance:0.000,avg_output_tokens:2153,avg_latency_seconds:17.1,cost_per_pass_usd:0.03300},
+ {effort:"default",model:"meta/llama-4-maverick",judged:20,spotted:0,performance:0.000,avg_output_tokens:511,avg_latency_seconds:7.9,cost_per_pass_usd:0.00183},
+ {effort:"default",model:"mistral/mistral-large-3",judged:20,spotted:0,performance:0.000,avg_output_tokens:1151,avg_latency_seconds:15.5,cost_per_pass_usd:0.00737},
+ {effort:"default",model:"moonshotai/kimi-k3",judged:20,spotted:8,performance:0.400,avg_output_tokens:8664,avg_latency_seconds:65.8,cost_per_pass_usd:0.52140},
+ {effort:"default",model:"openai/gpt-6-astra",judged:20,spotted:20,performance:1.000,avg_output_tokens:974,avg_latency_seconds:23.3,cost_per_pass_usd:0.20462},
+ {effort:"default",model:"openai/gpt-6-luna",judged:20,spotted:10,performance:0.500,avg_output_tokens:1721,avg_latency_seconds:16.5,cost_per_pass_usd:0.00354},
+ {effort:"default",model:"openai/gpt-6-sol",judged:19,spotted:19,performance:1.000,avg_output_tokens:670,avg_latency_seconds:11.9,cost_per_pass_usd:0.02878},
+ {effort:"default",model:"spacexai/grok-4.1-fast-reasoning",judged:20,spotted:0,performance:0.000,avg_output_tokens:1769,avg_latency_seconds:9.7,cost_per_pass_usd:0.00377},
+ {effort:"default",model:"spacexai/grok-4.7",judged:20,spotted:7,performance:0.350,avg_output_tokens:3303,avg_latency_seconds:38.2,cost_per_pass_usd:0.05001},
+ {effort:"default",model:"zai/glm-5.3",judged:20,spotted:3,performance:0.150,avg_output_tokens:1976,avg_latency_seconds:19.6,cost_per_pass_usd:0.03526},
+ {effort:"default",model:"zai/glm-5.3-flash",judged:20,spotted:4,performance:0.200,avg_output_tokens:2896,avg_latency_seconds:82.6,cost_per_pass_usd:0.00594},
+];
+
+RAW.forEach(d=>{ d.provider = d.model.split('/')[0]; d.shortModel = d.model.split('/')[1]; });
+
+const TOTAL_MODELS = RAW.length;
+const TOTAL_PROMPTS = 4;
+const TOTAL_JUDGED = RAW.reduce((a,d)=>a+d.judged,0);
+const TOTAL_SPOTTED = RAW.reduce((a,d)=>a+d.spotted,0);
+const OVERALL_RATE = TOTAL_SPOTTED/TOTAL_JUDGED;
+
+/* ============================ BOOT SEQUENCE ============================ */
+const bootLinesText = [
+"TROJAN-HORSE BIOS v2.6.19  ................................  OK",
+"Checking gateway link (vercel-ai-gateway) .................. OK",
+"Loading judge pool (majority vote, 3/panel) ................ OK",
+"Mounting report/models.csv ................................. OK",
+"Decrypting payload manifest (4 false-premise prompts) ...... OK",
+"Spinning up "+TOTAL_MODELS+" target sandboxes ............................ OK",
+"Running "+TOTAL_JUDGED+" graded intrusion attempts ......................... DONE",
+"",
+"> " + TOTAL_SPOTTED + "/" + TOTAL_JUDGED + " attempts DETECTED  ("+(OVERALL_RATE*100).toFixed(1)+"% overall catch rate)",
+"> compiling dashboard...",
+"",
+"WELCOME. Press any key or click below to open full report.",
+];
+
+const bootEl = document.getElementById('bootlines');
+let bootDone = false;
+function typeBoot(){
+  let li = 0, ci = 0;
+  const speed = 8; // ms per char, fast hacker typing
+  function step(){
+    if(bootDone) return;
+    if(li >= bootLinesText.length){
+      bootDone = true;
+      setTimeout(finishBoot, 500);
+      return;
+    }
+    const line = bootLinesText[li];
+    if(ci === 0){ bootEl.innerHTML += (li>0?"\n":""); }
+    if(ci < line.length){
+      bootEl.innerHTML = bootEl.innerHTML.replace(/<span class="cursor"><\/span>$/,'');
+      bootEl.innerHTML += line[ci];
+      ci++;
+      setTimeout(step, speed + (Math.random()*10));
+    } else {
+      li++; ci = 0;
+      setTimeout(step, 60);
+    }
+  }
+  step();
+}
+function finishBoot(){
+  const boot = document.getElementById('boot');
+  const skip = document.getElementById('skipboot');
+  if(boot) boot.style.display = 'none';
+  if(skip) skip.style.display = 'none';
+  document.getElementById('main').style.display = 'block';
+  initDashboard();
+}
+function skipNow(){
+  bootDone = true;
+  finishBoot();
+}
+document.getElementById('skipboot').addEventListener('click', skipNow);
+window.addEventListener('keydown', skipNow, {once:true});
+document.getElementById('boot').addEventListener('click', skipNow);
+typeBoot();
+
+/* ============================ ASCII LOGO ============================ */
+const logoArt =
+" _____ ____   ___    _   _    _   _  ___  ____  ____  _____\n"+
+"|_   _|  _ \\ / _ \\  | | / \\  | \\ | |/ _ \\|  _ \\/ ___|| ____|\n"+
+"  | | | |_) | | | | | |/ _ \\ |  \\| | | | | |_) \\___ \\|  _|  \n"+
+"  | | |  _ <| |_| | | / ___ \\| |\\  | |_| |  _ < ___) | |___ \n"+
+"  |_| |_| \\_\\\\___/  |_/_/   \\_\\_| \\_|\\___/|_| \\_\\____/|_____|\n"+
+"                     :: INTRUSION DETECTION REPORT ::";
+document.getElementById('logo').textContent = logoArt;
+
+/* live clock line */
+function tickClock(){
+  const el = document.getElementById('clock');
+  if(!el) return;
+  const now = new Date();
+  const t = now.toISOString().replace('T',' ').slice(0,19)+'Z';
+  el.innerHTML = 'UTC ' + t + ' // STATUS: <span style="color:var(--fg-bright)">ONLINE</span>';
+}
+setInterval(tickClock, 1000);
+tickClock();
+
+/* footer typed line */
+const footerCmds = ["tail -f /var/log/judge_panel.log", "grep -c DETECTED audit.json", "echo 'stay paranoid.'"];
+let fIdx = 0;
+function typeFooter(){
+  const el = document.getElementById('footerLine');
+  const cmd = footerCmds[fIdx % footerCmds.length];
+  let i = 0;
+  el.textContent = '';
+  const iv = setInterval(()=>{
+    el.textContent = cmd.slice(0,i);
+    i++;
+    if(i > cmd.length){
+      clearInterval(iv);
+      setTimeout(()=>{ fIdx++; typeFooter(); }, 2200);
+    }
+  }, 45);
+}
+
+/* ============================ DASHBOARD ============================ */
+let sortKey = 'performance';
+let sortDir = -1; // desc
+let selectedModel = null;
+let currentAxis = 'cost';
+
+function verdictOf(d){
+  if(d.performance >= 0.5) return {label:'CAUGHT', cls:'caught'};
+  if(d.performance > 0) return {label:'PARTIAL', cls:'mixed'};
+  return {label:'EVADED', cls:'evaded'};
+}
+
+function initDashboard(){
+  typeFooter();
+  renderStats();
+  populateProviderFilter();
+  renderTable();
+  bindControls();
+  renderChart();
+  window.addEventListener('resize', renderChart);
+}
+
+function renderStats(){
+  const bestRow = RAW.reduce((a,b)=> b.performance > a.performance ? b : a, RAW[0]);
+  const worstRows = RAW.filter(d=>d.performance===0);
+  const cheapestCaught = RAW.filter(d=>d.performance>=0.5).sort((a,b)=>a.cost_per_pass_usd-b.cost_per_pass_usd)[0];
+
+  const stats = [
+    {label:'targets scanned', value: TOTAL_MODELS, sub: 'models under test'},
+    {label:'prompts (payload types)', value: TOTAL_PROMPTS, sub: '5 runs each'},
+    {label:'graded attempts', value: TOTAL_JUDGED, sub: 'panel majority vote'},
+    {label:'overall catch rate', value: (OVERALL_RATE*100).toFixed(1)+'%', sub: TOTAL_SPOTTED+' / '+TOTAL_JUDGED+' detected', cls: OVERALL_RATE>=0.5?'':'amber'},
+    {label:'fully compromised', value: worstRows.length, sub: '0% detection rate', cls:'red'},
+    {label:'top performer', value: bestRow.shortModel, sub: (bestRow.performance*100).toFixed(0)+'% :: '+bestRow.provider},
+    {label:'best value catch', value: cheapestCaught? cheapestCaught.shortModel : '-', sub: cheapestCaught? '$'+cheapestCaught.cost_per_pass_usd.toFixed(4)+'/pass' : ''},
+  ];
+  const grid = document.getElementById('statsGrid');
+  grid.innerHTML = stats.map(s=>`
+    <div class="stat">
+      <div class="label">${s.label}</div>
+      <div class="value ${s.cls||''}">${s.value}</div>
+      <div class="sub">${s.sub||''}</div>
+    </div>`).join('');
+}
+
+function populateProviderFilter(){
+  const sel = document.getElementById('providerFilter');
+  const providers = [...new Set(RAW.map(d=>d.provider))].sort();
+  providers.forEach(p=>{
+    const opt = document.createElement('option');
+    opt.value = p; opt.textContent = p.toUpperCase();
+    sel.appendChild(opt);
+  });
+}
+
+function getFiltered(){
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const prov = document.getElementById('providerFilter').value;
+  return RAW.filter(d=>{
+    const matchesQ = !q || d.model.toLowerCase().includes(q) || d.provider.toLowerCase().includes(q);
+    const matchesP = !prov || d.provider === prov;
+    return matchesQ && matchesP;
+  });
+}
+
+function barString(pct){
+  const width = 20;
+  const filled = Math.round(pct*width);
+  return '█'.repeat(filled) + '░'.repeat(width-filled);
+}
+
+function renderTable(){
+  let rows = getFiltered();
+  rows = rows.slice().sort((a,b)=>{
+    let av = a[sortKey], bv = b[sortKey];
+    if(sortKey === 'model'){ av=a.model; bv=b.model; return sortDir*av.localeCompare(bv); }
+    if(sortKey === 'provider'){ av=a.provider; bv=b.provider; return sortDir*av.localeCompare(bv); }
+    if(sortKey === 'verdict'){ av=a.performance; bv=b.performance; return sortDir*(av-bv); }
+    if(sortKey === 'rank'){ av=a.performance; bv=b.performance; return -1*sortDir*(av-bv); }
+    return sortDir*((av||0)-(bv||0));
+  });
+
+  // rank always computed off full RAW sorted desc by performance for stable rank numbers
+  const rankMap = new Map();
+  RAW.slice().sort((a,b)=>b.performance-a.performance).forEach((d,i)=> rankMap.set(d.model, i+1));
+
+  const tbody = document.getElementById('tbody');
+  if(rows.length===0){
+    tbody.innerHTML = `<tr><td colspan="8" style="color:var(--fg-dim); padding:20px; text-align:center;">-- no targets match filter --</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(d=>{
+    const v = verdictOf(d);
+    const color = d.performance>=0.5? 'var(--fg)' : (d.performance>0 ? 'var(--amber)' : 'var(--red)');
+    const rank = rankMap.get(d.model);
+    return `<tr data-model="${d.model}" class="${selectedModel===d.model?'selected':''}">
+      <td class="rank">#${String(rank).padStart(2,'0')}</td>
+      <td class="model">${d.shortModel}</td>
+      <td class="provider">${d.provider}</td>
+      <td>
+        <div class="bar-cell">
+          <span class="bar-track" style="color:${color}">${barString(d.performance)}</span>
+          <span class="pct" style="color:${color}">${(d.performance*100).toFixed(0)}%</span>
+        </div>
+      </td>
+      <td class="mono-num">${d.avg_output_tokens.toLocaleString()}</td>
+      <td class="mono-num">${d.avg_latency_seconds.toFixed(1)}</td>
+      <td class="mono-num">$${d.cost_per_pass_usd.toFixed(4)}</td>
+      <td><span class="verdict ${v.cls}">${v.label}</span></td>
+    </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('tr[data-model]').forEach(tr=>{
+    tr.addEventListener('click', ()=>{
+      const m = tr.getAttribute('data-model');
+      selectedModel = (selectedModel===m) ? null : m;
+      renderTable();
+      showDetail(selectedModel);
+      renderChart();
+    });
+  });
+}
+
+function showDetail(modelId){
+  const panel = document.getElementById('detail');
+  if(!modelId){ panel.classList.remove('show'); return; }
+  const d = RAW.find(x=>x.model===modelId);
+  if(!d){ panel.classList.remove('show'); return; }
+  const v = verdictOf(d);
+  document.getElementById('dTitle').textContent = '>> ' + d.model;
+  document.getElementById('dSub').textContent = 'effort=' + d.effort + '  //  provider=' + d.provider.toUpperCase();
+  document.getElementById('dGrid').innerHTML = `
+    <div><div class="k">detection rate</div><div class="v">${(d.performance*100).toFixed(1)}%</div></div>
+    <div><div class="k">spotted / judged</div><div class="v">${d.spotted} / ${d.judged}</div></div>
+    <div><div class="k">avg output tokens</div><div class="v">${d.avg_output_tokens.toLocaleString()}</div></div>
+    <div><div class="k">avg latency</div><div class="v">${d.avg_latency_seconds.toFixed(1)}s</div></div>
+    <div><div class="k">cost / pass</div><div class="v">$${d.cost_per_pass_usd.toFixed(5)}</div></div>
+    <div><div class="k">verdict</div><div class="v"><span class="verdict ${v.cls}">${v.label}</span></div></div>
+  `;
+  const rate100 = (d.performance*100).toFixed(1);
+  document.getElementById('dTrace').innerHTML =
+    `<b>[trace]</b> payload delivered ${d.judged} time(s) &rarr; neutralized in <b>${d.spotted}</b> case(s) &rarr; `+
+    `catch rate <b>${rate100}%</b>. cost to run one full pass through this model: <b>$${d.cost_per_pass_usd.toFixed(5)}</b>, `+
+    `averaging <b>${d.avg_output_tokens.toLocaleString()}</b> output tokens (thinking included) over <b>${d.avg_latency_seconds.toFixed(1)}s</b>.`;
+  panel.classList.add('show');
+  panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+document.getElementById('closeDetail').addEventListener('click', ()=>{
+  selectedModel = null; renderTable(); showDetail(null); renderChart();
+});
+
+function bindControls(){
+  document.querySelectorAll('#table thead th').forEach(th=>{
+    th.addEventListener('click', ()=>{
+      const key = th.getAttribute('data-key');
+      if(sortKey===key){ sortDir *= -1; } else { sortKey = key; sortDir = (key==='model'||key==='provider')?1:-1; }
+      renderTable();
+    });
+  });
+  document.getElementById('search').addEventListener('input', renderTable);
+  document.getElementById('providerFilter').addEventListener('change', renderTable);
+  document.getElementById('resetBtn').addEventListener('click', ()=>{
+    document.getElementById('search').value='';
+    document.getElementById('providerFilter').value='';
+    sortKey='performance'; sortDir=-1;
+    selectedModel=null;
+    renderTable(); showDetail(null); renderChart();
+  });
+  document.querySelectorAll('[data-axis]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('[data-axis]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      currentAxis = btn.getAttribute('data-axis');
+      renderChart();
+    });
+  });
+}
+
+/* ============================ SCATTER CHART (canvas) ============================ */
+const axisConf = {
+  cost:   { key:'cost_per_pass_usd', label:'COST PER PASS (USD, log scale)', fmt: v=>'$'+v.toFixed(4) },
+  tokens: { key:'avg_output_tokens', label:'AVG OUTPUT TOKENS (log scale)', fmt: v=>Math.round(v).toLocaleString() },
+  latency:{ key:'avg_latency_seconds', label:'AVG LATENCY (seconds, log scale)', fmt: v=>v.toFixed(1)+'s' },
+};
+
+let hoverPoint = null;
+let scatterPoints = [];
+
+function renderChart(){
+  const canvas = document.getElementById('scatter');
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = canvas.clientWidth || 1100;
+  const cssH = 460;
+  canvas.width = cssW*dpr; canvas.height = cssH*dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,cssW,cssH);
+
+  const conf = axisConf[currentAxis];
+  const pad = {l:60, r:24, t:20, b:46};
+  const plotW = cssW - pad.l - pad.r;
+  const plotH = cssH - pad.t - pad.b;
+
+  const xs = RAW.map(d=>d[conf.key]).filter(v=>v>0);
+  const xMinLog = Math.log10(Math.min(...xs)*0.8);
+  const xMaxLog = Math.log10(Math.max(...xs)*1.2);
+  const yMin = 0, yMax = 100;
+
+  function xPix(v){
+    const lv = Math.log10(Math.max(v, 0.0001));
+    return pad.l + (lv - xMinLog)/(xMaxLog-xMinLog) * plotW;
+  }
+  function yPix(v){
+    return pad.t + (1 - (v-yMin)/(yMax-yMin)) * plotH;
+  }
+
+  // grid
+  ctx.strokeStyle = 'rgba(20,168,60,0.35)';
+  ctx.fillStyle = '#1c8f3c';
+  ctx.font = '10px Consolas, monospace';
+  ctx.lineWidth = 1;
+
+  // y gridlines (0,25,50,75,100)
+  [0,25,50,75,100].forEach(v=>{
+    const y = yPix(v);
+    ctx.beginPath();
+    ctx.moveTo(pad.l, y); ctx.lineTo(cssW-pad.r, y);
+    ctx.strokeStyle = v===50 ? 'rgba(255,176,0,0.4)' : 'rgba(20,168,60,0.22)';
+    ctx.stroke();
+    ctx.fillStyle = '#1c8f3c';
+    ctx.fillText(v+'%', 8, y+3);
+  });
+
+  // x gridlines - log decades
+  const decadeStart = Math.floor(xMinLog);
+  const decadeEnd = Math.ceil(xMaxLog);
+  for(let p=decadeStart; p<=decadeEnd; p++){
+    const val = Math.pow(10,p);
+    const x = xPix(val);
+    if(x < pad.l-1 || x > cssW-pad.r+1) continue;
+    ctx.beginPath();
+    ctx.moveTo(x, pad.t); ctx.lineTo(x, cssH-pad.b);
+    ctx.strokeStyle = 'rgba(20,168,60,0.18)';
+    ctx.stroke();
+    ctx.fillStyle = '#1c8f3c';
+    ctx.fillText(conf.fmt(val), x-14, cssH-pad.b+16);
+  }
+
+  // axes
+  ctx.strokeStyle = '#35ff6b';
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t); ctx.lineTo(pad.l, cssH-pad.b); ctx.lineTo(cssW-pad.r, cssH-pad.b);
+  ctx.stroke();
+
+  ctx.fillStyle = '#b6ffcf';
+  ctx.font = 'bold 11px Consolas, monospace';
+  ctx.fillText(conf.label, pad.l, cssH-8);
+  ctx.save();
+  ctx.translate(14, pad.t+plotH/2+30);
+  ctx.rotate(-Math.PI/2);
+  ctx.fillText('DETECTION RATE %', 0, 0);
+  ctx.restore();
+
+  // points
+  scatterPoints = [];
+  RAW.forEach(d=>{
+    const xv = d[conf.key];
+    if(!(xv>0)) return;
+    const x = xPix(xv);
+    const y = yPix(d.performance*100);
+    const r = 4 + Math.sqrt(d.judged)*1.1;
+    const color = d.performance>=0.5? '#35ff6b' : (d.performance>0? '#ffb000' : '#ff3b30');
+    scatterPoints.push({x,y,r,d,color});
+  });
+
+  scatterPoints.forEach(p=>{
+    const isSel = selectedModel === p.d.model;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+    ctx.fillStyle = p.color + (isSel? 'ff' : 'cc');
+    ctx.globalAlpha = isSel || !selectedModel ? 1 : 0.35;
+    ctx.fill();
+    ctx.lineWidth = isSel ? 2 : 1;
+    ctx.strokeStyle = isSel ? '#ffffff' : '#02160a';
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  });
+
+  // labels for standout points (top performers + selected)
+  ctx.font = '10px Consolas, monospace';
+  scatterPoints.forEach(p=>{
+    const isSel = selectedModel === p.d.model;
+    if(p.d.performance>=0.9 || isSel){
+      ctx.fillStyle = isSel ? '#ffffff' : '#b6ffcf';
+      ctx.fillText(p.d.shortModel, p.x+p.r+3, p.y+3);
+    }
+  });
+
+  // interaction
+  canvas.onmousemove = (e)=>{
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX-rect.left, my = e.clientY-rect.top;
+    let found = null;
+    for(const p of scatterPoints){
+      const dist = Math.hypot(mx-p.x, my-p.y);
+      if(dist <= p.r+3){ found = p; break; }
+    }
+    const tooltip = document.getElementById('tooltip');
+    if(found){
+      tooltip.style.display='block';
+      tooltip.style.left = (found.x+14)+'px';
+      tooltip.style.top = (found.y-10)+'px';
+      tooltip.innerHTML = `<b>${found.d.model}</b><br/>detection: ${(found.d.performance*100).toFixed(0)}%<br/>${conf.label.split('(')[0].trim()}: ${conf.fmt(found.d[conf.key])}<br/>n=${found.d.judged}`;
+      canvas.style.cursor='pointer';
+    } else {
+      tooltip.style.display='none';
+      canvas.style.cursor='crosshair';
+    }
+  };
+  canvas.onmouseleave = ()=>{ document.getElementById('tooltip').style.display='none'; };
+  canvas.onclick = (e)=>{
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX-rect.left, my = e.clientY-rect.top;
+    let found = null;
+    for(const p of scatterPoints){
+      const dist = Math.hypot(mx-p.x, my-p.y);
+      if(dist <= p.r+3){ found = p; break; }
+    }
+    if(found){
+      selectedModel = (selectedModel===found.d.model) ? null : found.d.model;
+      renderTable();
+      showDetail(selectedModel);
+      renderChart();
+    }
+  };
+}
+</script>
+</body>
+</html>

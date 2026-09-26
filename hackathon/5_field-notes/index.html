@@ -1,0 +1,953 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Field Notes: on the Trojan Horse Benchmark</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&family=Nunito+Sans:ital,opsz,wght@0,6..12,400;0,6..12,500;0,6..12,600;0,6..12,700;0,6..12,800;1,6..12,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper: #f4ecda;
+  --paper-2: #efe4cd;
+  --ink: #3a3226;
+  --ink-soft: #6b5f4c;
+  --sage: #7c9070;
+  --sage-dark: #56684c;
+  --ochre: #c08a2e;
+  --ochre-dark: #93691f;
+  --terracotta: #bd5b3d;
+  --terracotta-dark: #9a4530;
+  --dusty-blue: #5b7c92;
+  --dusty-blue-dark: #3f5c6e;
+  --line: #c9bb9c;
+  --line-soft: #ddd0b2;
+  --shadow: rgba(58,50,38,0.18);
+  --good: #56684c;
+  --bad: #9a4530;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper: #2a271f;
+    --paper-2: #322e24;
+    --ink: #ede4d0;
+    --ink-soft: #c2b697;
+    --line: #5a5240;
+    --line-soft: #453f30;
+    --shadow: rgba(0,0,0,0.4);
+  }
+}
+:root[data-theme="dark"]{
+  --paper: #2a271f;
+  --paper-2: #322e24;
+  --ink: #ede4d0;
+  --ink-soft: #c2b697;
+  --line: #5a5240;
+  --line-soft: #453f30;
+  --shadow: rgba(0,0,0,0.4);
+}
+
+*{box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  background:
+    radial-gradient(ellipse at 20% 0%, rgba(255,255,255,0.15), transparent 60%),
+    var(--paper);
+  color:var(--ink);
+  font-family:"Source Serif 4", Georgia, serif;
+  line-height:1.55;
+  min-height:100vh;
+}
+/* paper grain */
+body::before{
+  content:"";
+  position:fixed; inset:0;
+  pointer-events:none;
+  z-index:0;
+  opacity:0.5;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 27px, var(--line-soft) 28px),
+    radial-gradient(circle at 10% 20%, rgba(0,0,0,0.03), transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(0,0,0,0.03), transparent 40%);
+  background-size: 100% 28px, cover, cover;
+  mix-blend-mode:multiply;
+}
+:root[data-theme="dark"] body::before{ mix-blend-mode:overlay; opacity:0.25; }
+
+.wrap{
+  position:relative;
+  z-index:1;
+  max-width:1180px;
+  margin:0 auto;
+  padding:28px 20px 90px;
+}
+
+.hand{ font-family:"Caveat", cursive; }
+
+/* ---------- Header ---------- */
+header.masthead{
+  position:relative;
+  padding:22px 26px 26px;
+  margin-bottom:26px;
+  border:1.5px solid var(--line);
+  border-radius:3px;
+  background:var(--paper-2);
+  box-shadow:0 2px 0 var(--shadow);
+}
+.masthead-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:20px;
+  flex-wrap:wrap;
+}
+.masthead h1{
+  font-family:"Caveat", cursive;
+  font-weight:700;
+  font-size:clamp(2.4rem, 5vw, 3.6rem);
+  margin:0 0 2px;
+  color:var(--terracotta-dark);
+  letter-spacing:0.5px;
+}
+.masthead .subtitle{
+  font-size:0.98rem;
+  color:var(--ink-soft);
+  max-width:62ch;
+  font-family:"Nunito Sans", sans-serif;
+}
+.field-meta{
+  font-family:"Nunito Sans", sans-serif;
+  font-size:0.78rem;
+  color:var(--ink-soft);
+  text-align:right;
+  line-height:1.7;
+  white-space:nowrap;
+}
+.field-meta .stamp{
+  display:inline-block;
+  border:2px solid var(--sage-dark);
+  color:var(--sage-dark);
+  border-radius:6px;
+  padding:3px 10px;
+  transform:rotate(-4deg);
+  font-family:"Caveat", cursive;
+  font-size:1.05rem;
+  font-weight:700;
+  margin-top:6px;
+}
+:root[data-theme="dark"] .field-meta .stamp{ color:#9fc48f; border-color:#9fc48f; }
+
+.stats-strip{
+  margin-top:18px;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px 26px;
+  border-top:1px dashed var(--line);
+  padding-top:14px;
+}
+.stat-chip{
+  font-family:"Nunito Sans", sans-serif;
+  font-size:0.82rem;
+  color:var(--ink-soft);
+}
+.stat-chip b{
+  font-family:"Source Serif 4", serif;
+  color:var(--ink);
+  font-size:1.15rem;
+  font-weight:700;
+  display:block;
+}
+
+/* theme toggle */
+.theme-toggle{
+  position:absolute;
+  top:14px; right:14px;
+  font-family:"Nunito Sans", sans-serif;
+  font-size:0.72rem;
+  background:transparent;
+  border:1px solid var(--line);
+  color:var(--ink-soft);
+  border-radius:20px;
+  padding:4px 10px;
+  cursor:pointer;
+}
+.theme-toggle:hover{ background:var(--paper); }
+
+/* ---------- Section headers ---------- */
+.section{ margin:40px 0; position:relative; }
+.section-head{
+  display:flex;
+  align-items:baseline;
+  gap:14px;
+  margin-bottom:6px;
+}
+.section-num{
+  font-family:"Caveat", cursive;
+  font-size:1.4rem;
+  color:var(--sage-dark);
+  border:2px solid var(--sage-dark);
+  border-radius:50%;
+  width:36px;height:36px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+  transform:rotate(-3deg);
+}
+.section h2{
+  font-family:"Caveat", cursive;
+  font-size:2rem;
+  margin:0;
+  color:var(--ink);
+  font-weight:700;
+}
+.section .note{
+  font-family:"Nunito Sans", sans-serif;
+  color:var(--ink-soft);
+  font-size:0.92rem;
+  max-width:70ch;
+  margin:6px 0 20px 50px;
+}
+.doodle-divider{
+  width:100%;
+  height:16px;
+  margin:6px 0 24px;
+  opacity:0.55;
+}
+
+/* ---------- Field method card ---------- */
+.method-card{
+  border:1.5px dashed var(--line);
+  background:var(--paper-2);
+  border-radius:3px;
+  padding:18px 22px;
+  margin-left:50px;
+  font-family:"Nunito Sans", sans-serif;
+  font-size:0.9rem;
+  color:var(--ink-soft);
+  position:relative;
+}
+.method-card:before{
+  content:"field method";
+  position:absolute;
+  top:-11px; left:16px;
+  background:var(--paper);
+  padding:0 8px;
+  font-family:"Caveat", cursive;
+  font-size:1rem;
+  color:var(--sage-dark);
+  font-weight:700;
+}
+
+/* ---------- Specimen table (rankable list) ---------- */
+.specimen-controls{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+  margin:0 0 16px 50px;
+  font-family:"Nunito Sans", sans-serif;
+  font-size:0.82rem;
+}
+.specimen-controls span.label{ color:var(--ink-soft); margin-right:2px;}
+.sort-btn{
+  font-family:"Nunito Sans", sans-serif;
+  font-size:0.8rem;
+  background:var(--paper-2);
+  border:1px solid var(--line);
+  color:var(--ink);
+  padding:5px 12px;
+  border-radius:16px;
+  cursor:pointer;
+  transition:background 0.15s;
+}
+.sort-btn:hover{ background:var(--line-soft); }
+.sort-btn.active{
+  background:var(--sage-dark);
+  border-color:var(--sage-dark);
+  color:#fbf6e8;
+}
+
+.specimen-list{
+  margin-left:50px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+.specimen-row{
+  display:grid;
+  grid-template-columns: 34px 1fr 220px 90px;
+  align-items:center;
+  gap:14px;
+  border:1px solid var(--line);
+  background:var(--paper-2);
+  border-radius:4px;
+  padding:10px 14px;
+  cursor:pointer;
+  transition:transform 0.12s, box-shadow 0.12s;
+  position:relative;
+}
+.specimen-row:hover{
+  transform:translateX(3px);
+  box-shadow:-3px 3px 0 var(--shadow);
+}
+.specimen-row.open{
+  border-color:var(--terracotta);
+  box-shadow:-3px 3px 0 var(--shadow);
+}
+.rank-badge{
+  font-family:"Caveat", cursive;
+  font-weight:700;
+  font-size:1.25rem;
+  color:var(--ink-soft);
+  text-align:center;
+}
+.specimen-id{ font-family:"Nunito Sans", sans-serif; }
+.specimen-name{
+  font-weight:700;
+  font-size:1rem;
+  color:var(--ink);
+}
+.specimen-provider{
+  font-size:0.76rem;
+  color:var(--ink-soft);
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+}
+.bar-track{
+  height:14px;
+  background:var(--paper);
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+  position:relative;
+}
+.bar-fill{
+  height:100%;
+  border-radius:8px 0 0 8px;
+  transition:width 0.5s ease;
+}
+.pct-label{
+  font-family:"Nunito Sans", sans-serif;
+  font-weight:700;
+  font-size:0.95rem;
+  text-align:right;
+}
+
+/* detail panel (specimen card) */
+.specimen-detail{
+  margin-left:50px;
+  margin-top:-2px;
+  border:1.5px solid var(--terracotta);
+  background:var(--paper-2);
+  border-radius:4px;
+  padding:20px 24px;
+  display:none;
+  position:relative;
+}
+.specimen-detail.show{ display:block; }
+.specimen-detail .pin{
+  position:absolute;
+  top:-10px; left:24px;
+  width:18px;height:18px;
+  border-radius:50%;
+  background:var(--terracotta);
+  box-shadow:0 2px 3px var(--shadow);
+}
+.detail-head{
+  display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;
+}
+.detail-head h3{
+  font-family:"Caveat", cursive;
+  font-size:1.7rem;
+  margin:0;
+  color:var(--terracotta-dark);
+}
+.detail-head .prov{
+  font-family:"Nunito Sans", sans-serif;
+  font-size:0.78rem;
+  color:var(--ink-soft);
+  text-transform:uppercase;
+  letter-spacing:0.06em;
+}
+.detail-metrics{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(120px,1fr));
+  gap:14px;
+  margin:16px 0;
+}
+.dmetric{ font-family:"Nunito Sans", sans-serif; }
+.dmetric .k{ font-size:0.72rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-soft); }
+.dmetric .v{ font-family:"Source Serif 4", serif; font-size:1.3rem; font-weight:700; color:var(--ink); }
+.field-note{
+  font-family:"Caveat", cursive;
+  font-size:1.25rem;
+  color:var(--sage-dark);
+  border-left:3px solid var(--sage-dark);
+  padding-left:14px;
+  margin-top:12px;
+  line-height:1.35;
+}
+:root[data-theme="dark"] .field-note{ color:#9fc48f; border-color:#9fc48f;}
+
+/* ---------- Scatter plot ---------- */
+.chart-wrap{
+  margin-left:50px;
+  border:1.5px solid var(--line);
+  background:var(--paper-2);
+  border-radius:4px;
+  padding:18px 18px 8px;
+}
+.chart-controls{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  flex-wrap:wrap;
+  font-family:"Nunito Sans", sans-serif;
+  font-size:0.82rem;
+  margin-bottom:8px;
+}
+svg text{ font-family:"Nunito Sans", sans-serif; }
+.axis-label{ font-size:11px; fill:var(--ink-soft); }
+.grid-line{ stroke:var(--line-soft); stroke-width:1; }
+.dot{
+  cursor:pointer;
+  transition:r 0.15s;
+  stroke:var(--paper);
+  stroke-width:1.5;
+}
+.dot:hover{ stroke:var(--ink); stroke-width:2; }
+.dot-label{
+  font-size:9.5px;
+  fill:var(--ink-soft);
+  pointer-events:none;
+}
+.tooltip{
+  position:absolute;
+  pointer-events:none;
+  background:var(--paper);
+  border:1.5px solid var(--terracotta);
+  border-radius:4px;
+  padding:8px 12px;
+  font-family:"Nunito Sans", sans-serif;
+  font-size:0.78rem;
+  color:var(--ink);
+  box-shadow:2px 2px 0 var(--shadow);
+  opacity:0;
+  transition:opacity 0.1s;
+  z-index:20;
+  max-width:220px;
+}
+.tooltip.show{ opacity:1; }
+.tooltip b{ font-family:"Source Serif 4", serif; }
+
+/* legend swatches */
+.legend{
+  display:flex;
+  gap:16px;
+  flex-wrap:wrap;
+  margin-top:10px;
+  padding-top:10px;
+  border-top:1px dashed var(--line);
+  font-family:"Nunito Sans", sans-serif;
+  font-size:0.78rem;
+  color:var(--ink-soft);
+}
+.legend-item{ display:flex; align-items:center; gap:6px; }
+.swatch{ width:11px; height:11px; border-radius:50%; display:inline-block; }
+
+/* ---------- Table (browsable full data) ---------- */
+.table-wrap{
+  margin-left:50px;
+  overflow-x:auto;
+  border:1.5px solid var(--line);
+  border-radius:4px;
+  background:var(--paper-2);
+}
+table.field-table{
+  border-collapse:collapse;
+  width:100%;
+  font-family:"Nunito Sans", sans-serif;
+  font-size:0.83rem;
+  min-width:820px;
+}
+table.field-table th, table.field-table td{
+  padding:9px 12px;
+  text-align:left;
+  border-bottom:1px solid var(--line-soft);
+  white-space:nowrap;
+}
+table.field-table th{
+  cursor:pointer;
+  color:var(--ink-soft);
+  font-weight:700;
+  text-transform:uppercase;
+  font-size:0.7rem;
+  letter-spacing:0.05em;
+  position:sticky;
+  top:0;
+  background:var(--paper-2);
+  border-bottom:2px solid var(--line);
+  user-select:none;
+}
+table.field-table th:hover{ color:var(--ink); }
+table.field-table th.sorted::after{ content:" ▾"; }
+table.field-table tbody tr:hover{ background:var(--paper); }
+table.field-table td.mono{ font-variant-numeric:tabular-nums; }
+.tag-provider{
+  display:inline-block;
+  padding:1px 8px;
+  border-radius:10px;
+  font-size:0.72rem;
+  font-weight:700;
+  color:#fff;
+}
+
+/* ---------- footer ---------- */
+footer{
+  margin-top:60px;
+  padding-top:20px;
+  border-top:1.5px dashed var(--line);
+  font-family:"Nunito Sans", sans-serif;
+  font-size:0.8rem;
+  color:var(--ink-soft);
+  text-align:center;
+}
+
+/* small screens */
+@media (max-width:720px){
+  .specimen-row{ grid-template-columns: 26px 1fr 100px 60px; gap:8px; padding:9px 10px;}
+  .specimen-provider{ display:none; }
+  .section .note, .specimen-controls, .specimen-list, .specimen-detail, .chart-wrap, .table-wrap{ margin-left:0; }
+  .section-head{ gap:8px; }
+}
+
+/* SVG doodle color helpers */
+.ink-stroke{ stroke:var(--ink-soft); fill:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="masthead">
+  <button class="theme-toggle" id="themeToggle">🌓 toggle light/dark</button>
+  <div class="masthead-top">
+    <div>
+      <h1>Field Notes on the Trojan Horse Benchmark</h1>
+      <div class="subtitle">An illustrated logbook of twenty language models sent into the field with questions that hide a false premise — like a burr hidden in a nice-looking question — to see which ones stop, notice, and say so, and which just answer and walk on.</div>
+    </div>
+    <div class="field-meta">
+      Observation season: 2026<br>
+      Site: Vercel AI Gateway<br>
+      <span class="stamp">verified specimens ✓</span>
+    </div>
+  </div>
+  <div class="stats-strip">
+    <div class="stat-chip"><b>20</b>models observed</div>
+    <div class="stat-chip"><b>4</b>trojan prompts used</div>
+    <div class="stat-chip"><b>400</b>graded answers</div>
+    <div class="stat-chip"><b>34.3%</b>overall detection rate</div>
+    <div class="stat-chip"><b>5</b>models caught every trap</div>
+    <div class="stat-chip"><b>9</b>models caught none</div>
+  </div>
+</header>
+
+<!-- ================= SECTION 1: field method ================= -->
+<div class="section" id="method">
+  <div class="section-head">
+    <div class="section-num">1</div>
+    <h2>How the specimens were tested</h2>
+  </div>
+  <p class="note">Each model was handed the same four planted-false-premise questions, five times over, and its answers were judged — blind, by a rotating jury of other models — on whether it caught the trojan hidden inside the question. A model that just answers the smuggled-in false premise as if it were true is marked "not spotted"; one that pauses and corrects the record is "spotted."</p>
+  <svg class="doodle-divider" viewBox="0 0 400 16" preserveAspectRatio="none">
+    <path class="ink-stroke" d="M2,8 Q40,2 80,8 T160,8 T240,8 T320,8 T398,8" stroke-dasharray="1 7" stroke-linecap="round" stroke-width="2"/>
+  </svg>
+  <div class="method-card">
+    Twenty models, four prompt types, five repeated runs each — <b>400 graded answers</b> in total. A verdict of "spotted" or "not spotted" needed a majority of a random 3-judge panel drawn from models other than the answer's own provider. Detection rate below = spotted ÷ judged, per model. Cost is Vercel's gateway list price per pass; tokens include any hidden "thinking" tokens the model used.
+  </div>
+</div>
+
+<!-- ================= SECTION 2: specimen list (ranked) ================= -->
+<div class="section" id="specimens">
+  <div class="section-head">
+    <div class="section-num">2</div>
+    <h2>The specimen log, ranked</h2>
+  </div>
+  <p class="note">Click any row to open its field card — behavioral note, tokens, latency, and cost. Sort the log by whichever trait you're curious about.</p>
+
+  <div class="specimen-controls">
+    <span class="label">sort by:</span>
+    <button class="sort-btn active" data-sort="performance">detection rate</button>
+    <button class="sort-btn" data-sort="cost_per_pass_usd">cost per pass</button>
+    <button class="sort-btn" data-sort="avg_output_tokens">avg. tokens</button>
+    <button class="sort-btn" data-sort="avg_latency_seconds">avg. latency</button>
+    <button class="sort-btn" data-sort="model">name (A–Z)</button>
+  </div>
+
+  <div class="specimen-list" id="specimenList"></div>
+  <div class="specimen-detail" id="specimenDetail"><div class="pin"></div></div>
+</div>
+
+<!-- ================= SECTION 3: scatter — rate vs cost/tokens/latency ================= -->
+<div class="section" id="relations">
+  <div class="section-head">
+    <div class="section-num">3</div>
+    <h2>What detection costs you</h2>
+  </div>
+  <p class="note">Does catching the trojan take more tokens, more time, more money? Each dot is one specimen; hover for its file card. Axes are log-scaled — the field notes sprawl across three orders of magnitude.</p>
+
+  <div class="chart-wrap">
+    <div class="chart-controls">
+      <span class="label">compare detection rate against:</span>
+      <button class="sort-btn active" data-x="cost_per_pass_usd">cost per pass ($)</button>
+      <button class="sort-btn" data-x="avg_output_tokens">avg. output tokens</button>
+      <button class="sort-btn" data-x="avg_latency_seconds">avg. latency (s)</button>
+    </div>
+    <div style="position:relative;">
+      <svg id="scatter" viewBox="0 0 900 460" style="width:100%; height:auto; display:block;"></svg>
+      <div class="tooltip" id="tooltip"></div>
+    </div>
+    <div class="legend" id="legend"></div>
+  </div>
+</div>
+
+<!-- ================= SECTION 4: full table ================= -->
+<div class="section" id="ledger">
+  <div class="section-head">
+    <div class="section-num">4</div>
+    <h2>The full ledger</h2>
+  </div>
+  <p class="note">Every number recorded during the expedition, browsable and sortable — for the reader who wants to check my sketching against the raw notes.</p>
+  <div class="table-wrap">
+    <table class="field-table" id="fullTable">
+      <thead>
+        <tr>
+          <th data-key="model">Model</th>
+          <th data-key="provider">Provider</th>
+          <th data-key="performance">Detection rate</th>
+          <th data-key="spotted">Spotted / Judged</th>
+          <th data-key="avg_output_tokens">Avg. tokens</th>
+          <th data-key="avg_latency_seconds">Avg. latency (s)</th>
+          <th data-key="cost_per_pass_usd">Cost / pass ($)</th>
+        </tr>
+      </thead>
+      <tbody id="fullTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<footer>
+  Field notebook compiled from the Trojan Horse Benchmark's <code>report/models.csv</code>. Detection rate = spotted ÷ judged answers, per model, across all four prompt types. All data embedded — no live connection required.
+</footer>
+
+</div>
+
+<script>
+/* ---------------- Data (embedded, authoritative) ---------------- */
+const DATA = [
+{effort:"default",model:"alibaba/qwen3.8-max",judged:20,spotted:9,performance:0.450,avg_output_tokens:17439,avg_latency_seconds:133.3,cost_per_pass_usd:0.41940},
+{effort:"default",model:"anthropic/claude-fable-5.1",judged:20,spotted:10,performance:0.500,avg_output_tokens:2783,avg_latency_seconds:40.3,cost_per_pass_usd:0.57119},
+{effort:"default",model:"anthropic/claude-haiku-4.5",judged:20,spotted:0,performance:0.000,avg_output_tokens:638,avg_latency_seconds:8.3,cost_per_pass_usd:0.01379},
+{effort:"default",model:"anthropic/claude-opus-5.5",judged:20,spotted:19,performance:0.950,avg_output_tokens:2776,avg_latency_seconds:30.5,cost_per_pass_usd:0.22788},
+{effort:"default",model:"anthropic/claude-sonnet-5",judged:20,spotted:0,performance:0.000,avg_output_tokens:2778,avg_latency_seconds:30.3,cost_per_pass_usd:0.11403},
+{effort:"default",model:"deepseek/deepseek-v4-pro",judged:20,spotted:3,performance:0.150,avg_output_tokens:7750,avg_latency_seconds:87.5,cost_per_pass_usd:0.06160},
+{effort:"default",model:"deepseek/deepseek-v4.1-flash",judged:20,spotted:3,performance:0.150,avg_output_tokens:8526,avg_latency_seconds:54.6,cost_per_pass_usd:0.03416},
+{effort:"default",model:"google/gemini-3.1-pro-preview",judged:20,spotted:0,performance:0.000,avg_output_tokens:2407,avg_latency_seconds:20.7,cost_per_pass_usd:0.11742},
+{effort:"default",model:"google/gemini-3.5-flash-lite",judged:20,spotted:0,performance:0.000,avg_output_tokens:749,avg_latency_seconds:4.3,cost_per_pass_usd:0.00778},
+{effort:"default",model:"google/gemini-3.8-flash",judged:20,spotted:0,performance:0.000,avg_output_tokens:2153,avg_latency_seconds:17.1,cost_per_pass_usd:0.03300},
+{effort:"default",model:"meta/llama-4-maverick",judged:20,spotted:0,performance:0.000,avg_output_tokens:511,avg_latency_seconds:7.9,cost_per_pass_usd:0.00183},
+{effort:"default",model:"mistral/mistral-large-3",judged:20,spotted:0,performance:0.000,avg_output_tokens:1151,avg_latency_seconds:15.5,cost_per_pass_usd:0.00737},
+{effort:"default",model:"moonshotai/kimi-k3",judged:20,spotted:8,performance:0.400,avg_output_tokens:8664,avg_latency_seconds:65.8,cost_per_pass_usd:0.52140},
+{effort:"default",model:"openai/gpt-6-astra",judged:20,spotted:20,performance:1.000,avg_output_tokens:974,avg_latency_seconds:23.3,cost_per_pass_usd:0.20462},
+{effort:"default",model:"openai/gpt-6-luna",judged:20,spotted:10,performance:0.500,avg_output_tokens:1721,avg_latency_seconds:16.5,cost_per_pass_usd:0.00354},
+{effort:"default",model:"openai/gpt-6-sol",judged:19,spotted:19,performance:1.000,avg_output_tokens:670,avg_latency_seconds:11.9,cost_per_pass_usd:0.02878},
+{effort:"default",model:"spacexai/grok-4.1-fast-reasoning",judged:20,spotted:0,performance:0.000,avg_output_tokens:1769,avg_latency_seconds:9.7,cost_per_pass_usd:0.00377},
+{effort:"default",model:"spacexai/grok-4.7",judged:20,spotted:7,performance:0.350,avg_output_tokens:3303,avg_latency_seconds:38.2,cost_per_pass_usd:0.05001},
+{effort:"default",model:"zai/glm-5.3",judged:20,spotted:3,performance:0.150,avg_output_tokens:1976,avg_latency_seconds:19.6,cost_per_pass_usd:0.03526},
+{effort:"default",model:"zai/glm-5.3-flash",judged:20,spotted:4,performance:0.200,avg_output_tokens:2896,avg_latency_seconds:82.6,cost_per_pass_usd:0.00594}
+];
+
+DATA.forEach(d=>{ d.provider = d.model.split("/")[0]; });
+
+/* ---------------- Provider palette (muted, natural) ---------------- */
+const PROVIDER_COLORS = {
+  "openai":       {main:"#c08a2e", dark:"#93691f"},   // ochre
+  "anthropic":    {main:"#bd5b3d", dark:"#9a4530"},   // terracotta
+  "google":       {main:"#5b7c92", dark:"#3f5c6e"},   // dusty blue
+  "meta":         {main:"#7c9070", dark:"#56684c"},   // sage
+  "mistral":      {main:"#9a7fae", dark:"#77608a"},   // muted violet
+  "deepseek":     {main:"#8a9a4a", dark:"#6c7a38"},   // olive
+  "moonshotai":   {main:"#b98f56", dark:"#8f6c3e"},   // tan
+  "alibaba":      {main:"#c76b6b", dark:"#9d5050"},   // dusty rose
+  "spacexai":     {main:"#6b7f9a", dark:"#4f5f77"},   // slate blue
+  "zai":          {main:"#8f7256", dark:"#6d5641"},   // umber
+};
+function colorFor(provider){ return (PROVIDER_COLORS[provider]||{main:"#8a8060",dark:"#6b6349"}); }
+
+/* ---------------- Field notes: per-model observational line ---------------- */
+function fieldNote(d){
+  const r = d.performance;
+  if (d.model === "openai/gpt-6-astra") return "Never once let a false premise past. The most consistently skeptical specimen in the log.";
+  if (d.model === "openai/gpt-6-sol") return "Small, quick, and almost incapable of being fooled — caught all 19 it was judged on.";
+  if (d.model === "anthropic/claude-opus-5.5") return "Nearly perfect vigilance, and terse about it — doesn't need many words to push back.";
+  if (r >= 0.9) return "A sharp-eyed specimen. Rarely lets a planted premise slide.";
+  if (r >= 0.6) return "Mostly skeptical, though it lets a few smuggled claims through unchallenged.";
+  if (r >= 0.35) return "A coin-flip skeptic — catches some trojans, walks right past others.";
+  if (r > 0) return "Occasionally raises an eyebrow, but usually answers the question as asked, false premise and all.";
+  if (d.avg_output_tokens > 5000) return "Writes long, confident answers — and never once questions what it was asked.";
+  if (d.avg_latency_seconds < 10) return "Fast and agreeable. Never pushes back, never slows down to check.";
+  return "This one rarely pushes back — takes the question at face value every time.";
+}
+
+/* ================= Specimen list ================= */
+const specimenList = document.getElementById('specimenList');
+const specimenDetail = document.getElementById('specimenDetail');
+let currentSort = 'performance';
+let sortDir = -1; // desc by default for performance
+let openModel = null;
+
+function sortedData(key){
+  const arr = [...DATA];
+  arr.sort((a,b)=>{
+    let av=a[key], bv=b[key];
+    if (typeof av === 'string'){ return sortDir * av.localeCompare(bv); }
+    return sortDir * (bv - av) * -1 * -1; // placeholder, real compare below
+  });
+  return arr;
+}
+function compare(a,b,key,dir){
+  let av=a[key], bv=b[key];
+  if (typeof av === 'string') return dir==='asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+  return dir==='asc' ? av-bv : bv-av;
+}
+
+function renderSpecimens(sortKey){
+  const dir = sortKey === 'model' ? 'asc' : 'desc';
+  const arr = [...DATA].sort((a,b)=>compare(a,b,sortKey,dir));
+  specimenList.innerHTML = '';
+  arr.forEach((d, i)=>{
+    const row = document.createElement('div');
+    row.className = 'specimen-row' + (openModel===d.model ? ' open' : '');
+    const c = colorFor(d.provider);
+    const pct = (d.performance*100).toFixed(0);
+    row.innerHTML = `
+      <div class="rank-badge">${i+1}</div>
+      <div class="specimen-id">
+        <div class="specimen-name">${shortName(d.model)}</div>
+        <div class="specimen-provider">${d.provider}</div>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${pct}%; background:${c.main};"></div></div>
+      <div class="pct-label" style="color:${c.dark}">${pct}%</div>
+    `;
+    row.addEventListener('click', ()=>{
+      openModel = (openModel===d.model) ? null : d.model;
+      renderSpecimens(currentSort);
+      renderDetail();
+    });
+    specimenList.appendChild(row);
+  });
+  renderDetail();
+}
+
+function shortName(m){
+  return m.split("/")[1];
+}
+
+function renderDetail(){
+  if (!openModel){ specimenDetail.classList.remove('show'); return; }
+  const d = DATA.find(x=>x.model===openModel);
+  const c = colorFor(d.provider);
+  specimenDetail.classList.add('show');
+  specimenDetail.innerHTML = `
+    <div class="pin"></div>
+    <div class="detail-head">
+      <div>
+        <h3>${shortName(d.model)}</h3>
+        <div class="prov">genus: ${d.provider}</div>
+      </div>
+      <div class="pct-label" style="font-size:1.6rem; color:${c.dark};">${(d.performance*100).toFixed(0)}% detected</div>
+    </div>
+    <div class="detail-metrics">
+      <div class="dmetric"><div class="k">Spotted / Judged</div><div class="v">${d.spotted} / ${d.judged}</div></div>
+      <div class="dmetric"><div class="k">Avg. output tokens</div><div class="v">${d.avg_output_tokens.toLocaleString()}</div></div>
+      <div class="dmetric"><div class="k">Avg. latency</div><div class="v">${d.avg_latency_seconds.toFixed(1)}s</div></div>
+      <div class="dmetric"><div class="k">Cost / pass</div><div class="v">$${d.cost_per_pass_usd.toFixed(5)}</div></div>
+    </div>
+    <div class="field-note">"${fieldNote(d)}"</div>
+  `;
+}
+
+document.querySelectorAll('.specimen-controls .sort-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.specimen-controls .sort-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentSort = btn.dataset.sort;
+    renderSpecimens(currentSort);
+  });
+});
+
+renderSpecimens(currentSort);
+
+/* ================= Scatter chart ================= */
+const svg = document.getElementById('scatter');
+const tooltip = document.getElementById('tooltip');
+const legendEl = document.getElementById('legend');
+let xKey = 'cost_per_pass_usd';
+
+const AXIS_LABELS = {
+  cost_per_pass_usd: 'cost per pass (USD, log scale)',
+  avg_output_tokens: 'avg. output tokens (log scale)',
+  avg_latency_seconds: 'avg. latency, seconds (log scale)'
+};
+
+function niceLogDomain(vals){
+  const positives = vals.filter(v=>v>0);
+  const min = Math.min(...positives);
+  const max = Math.max(...vals);
+  return [min*0.6, max*1.4];
+}
+
+function drawScatter(){
+  const W = 900, H = 460;
+  const padL = 60, padR = 30, padT = 20, padB = 50;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+
+  const xs = DATA.map(d=>Math.max(d[xKey], 0.0001));
+  const [xMin, xMax] = niceLogDomain(xs);
+  const logXMin = Math.log10(xMin), logXMax = Math.log10(xMax);
+
+  const yMin = 0, yMax = 1;
+
+  function xPix(v){ return padL + ( (Math.log10(Math.max(v,0.0001)) - logXMin) / (logXMax-logXMin) ) * plotW; }
+  function yPix(v){ return padT + plotH - ( (v-yMin)/(yMax-yMin) ) * plotH; }
+
+  let svgContent = '';
+
+  // gridlines Y (0%,25%,50%,75%,100%)
+  for (let p=0; p<=100; p+=25){
+    const y = yPix(p/100);
+    svgContent += `<line class="grid-line" x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}"/>`;
+    svgContent += `<text class="axis-label" x="${padL-10}" y="${y+4}" text-anchor="end">${p}%</text>`;
+  }
+  // X gridlines - pick nice log ticks
+  const tickCount = 5;
+  for (let i=0;i<=tickCount;i++){
+    const logV = logXMin + (i/tickCount)*(logXMax-logXMin);
+    const v = Math.pow(10, logV);
+    const x = xPix(v);
+    svgContent += `<line class="grid-line" x1="${x}" y1="${padT}" x2="${x}" y2="${padT+plotH}"/>`;
+    let label = v>=1 ? v.toFixed(v>=100?0:1) : v.toFixed(3);
+    if (xKey==='avg_output_tokens') label = Math.round(v).toLocaleString();
+    if (xKey==='cost_per_pass_usd') label = '$'+ (v>=0.01? v.toFixed(2): v.toFixed(4));
+    if (xKey==='avg_latency_seconds') label = Math.round(v)+'s';
+    svgContent += `<text class="axis-label" x="${x}" y="${padT+plotH+18}" text-anchor="middle">${label}</text>`;
+  }
+
+  // axis titles
+  svgContent += `<text class="axis-label" x="${padL+plotW/2}" y="${H-8}" text-anchor="middle" font-weight="600">${AXIS_LABELS[xKey]}</text>`;
+  svgContent += `<text class="axis-label" x="${16}" y="${padT+plotH/2}" text-anchor="middle" font-weight="600" transform="rotate(-90 16 ${padT+plotH/2})">detection rate</text>`;
+
+  // hand-drawn frame
+  svgContent += `<rect x="${padL}" y="${padT}" width="${plotW}" height="${plotH}" fill="none" stroke="var(--line)" stroke-width="1.5"/>`;
+
+  // dots
+  DATA.forEach(d=>{
+    const cx = xPix(d[xKey]);
+    const cy = yPix(d.performance);
+    const c = colorFor(d.provider);
+    const r = 7;
+    svgContent += `<circle class="dot" cx="${cx}" cy="${cy}" r="${r}" fill="${c.main}" data-model="${d.model}"/>`;
+  });
+
+  svg.innerHTML = svgContent;
+
+  // attach hover events
+  svg.querySelectorAll('.dot').forEach(dot=>{
+    dot.addEventListener('mousemove', (e)=>{
+      const d = DATA.find(x=>x.model===dot.dataset.model);
+      const rect = svg.getBoundingClientRect();
+      const scaleX = rect.width / W;
+      const scaleY = rect.height / H;
+      tooltip.innerHTML = `<b>${shortName(d.model)}</b><br>${d.provider}<br>
+        detection: ${(d.performance*100).toFixed(0)}%<br>
+        cost/pass: $${d.cost_per_pass_usd.toFixed(5)}<br>
+        tokens: ${d.avg_output_tokens.toLocaleString()}<br>
+        latency: ${d.avg_latency_seconds.toFixed(1)}s`;
+      tooltip.classList.add('show');
+      const cx = parseFloat(dot.getAttribute('cx')) * scaleX;
+      const cy = parseFloat(dot.getAttribute('cy')) * scaleY;
+      tooltip.style.left = (cx+16) + 'px';
+      tooltip.style.top = (cy-10) + 'px';
+    });
+    dot.addEventListener('mouseleave', ()=> tooltip.classList.remove('show'));
+  });
+
+  // legend
+  const providers = [...new Set(DATA.map(d=>d.provider))].sort();
+  legendEl.innerHTML = providers.map(p=>{
+    const c = colorFor(p);
+    return `<div class="legend-item"><span class="swatch" style="background:${c.main}"></span>${p}</div>`;
+  }).join('');
+}
+
+document.querySelectorAll('.chart-controls .sort-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.chart-controls .sort-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    xKey = btn.dataset.x;
+    drawScatter();
+  });
+});
+
+drawScatter();
+window.addEventListener('resize', drawScatter);
+
+/* ================= Full ledger table ================= */
+const tbody = document.getElementById('fullTableBody');
+let tableSortKey = 'performance';
+let tableSortDir = 'desc';
+
+function renderTable(){
+  const arr = [...DATA].sort((a,b)=>compare(a,b,tableSortKey,tableSortDir));
+  tbody.innerHTML = arr.map(d=>{
+    const c = colorFor(d.provider);
+    return `<tr>
+      <td>${shortName(d.model)}</td>
+      <td><span class="tag-provider" style="background:${c.main}">${d.provider}</span></td>
+      <td class="mono">${(d.performance*100).toFixed(1)}%</td>
+      <td class="mono">${d.spotted} / ${d.judged}</td>
+      <td class="mono">${d.avg_output_tokens.toLocaleString()}</td>
+      <td class="mono">${d.avg_latency_seconds.toFixed(1)}</td>
+      <td class="mono">$${d.cost_per_pass_usd.toFixed(5)}</td>
+    </tr>`;
+  }).join('');
+  document.querySelectorAll('#fullTable th').forEach(th=>{
+    th.classList.toggle('sorted', th.dataset.key===tableSortKey);
+  });
+}
+document.querySelectorAll('#fullTable th').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const key = th.dataset.key;
+    if (tableSortKey === key){ tableSortDir = tableSortDir==='desc' ? 'asc':'desc'; }
+    else { tableSortKey = key; tableSortDir = 'desc'; }
+    renderTable();
+  });
+});
+renderTable();
+
+/* ================= Theme toggle ================= */
+const themeToggle = document.getElementById('themeToggle');
+try{
+  const saved = localStorage.getItem('fieldnotes-theme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+}catch(e){}
+themeToggle.addEventListener('click', ()=>{
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : (cur==='light' ? 'dark' : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'light':'dark'));
+  document.documentElement.setAttribute('data-theme', next);
+  try{ localStorage.setItem('fieldnotes-theme', next); }catch(e){}
+});
+</script>
+</body>
+</html>

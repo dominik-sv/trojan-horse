@@ -1,0 +1,628 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trojan Horse Benchmark — Grid Edition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#111111;
+    --paper:#f4f3ef;
+    --paper-2:#eae8e1;
+    --red:#e8351c;
+    --rule:#111111;
+    --rule-soft:#c9c6bc;
+    --gray:#6f6c62;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Inter',Helvetica,Arial,sans-serif;
+    font-feature-settings:"tnum" 1,"cv05" 1;
+    -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:'Roboto Mono',ui-monospace,monospace;}
+  ::selection{background:var(--red);color:var(--paper);}
+
+  /* ============ GRID SCAFFOLD ============ */
+  .sheet{
+    max-width:1400px;
+    margin:0 auto;
+    padding:0 40px;
+  }
+  .grid12{
+    display:grid;
+    grid-template-columns:repeat(12,1fr);
+    column-gap:16px;
+  }
+  .col-line{
+    position:relative;
+  }
+  /* visible underlying grid, toggled via body class */
+  .grid-overlay{
+    position:fixed; inset:0; pointer-events:none; z-index:999;
+    max-width:1400px; margin:0 auto; padding:0 40px; display:none;
+  }
+  body.show-grid .grid-overlay{display:grid;grid-template-columns:repeat(12,1fr);column-gap:16px;}
+  .grid-overlay div{background:rgba(232,53,28,0.06); border-left:1px solid rgba(232,53,28,0.25); border-right:1px solid rgba(232,53,28,0.25); height:100%;}
+
+  header.masthead{
+    padding-top:34px;
+    border-bottom:3px solid var(--ink);
+    padding-bottom:0;
+  }
+  .masthead-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    padding-bottom:14px;
+  }
+  .brand-index{
+    font-size:12px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--gray);
+  }
+  .brand-index span{color:var(--red);}
+  .grid-toggle{
+    font-size:11px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    border:1px solid var(--ink);
+    padding:6px 10px;
+    background:none;
+    cursor:pointer;
+    font-family:inherit;
+    color:var(--ink);
+  }
+  .grid-toggle:hover{background:var(--ink);color:var(--paper);}
+
+  .title-block{
+    padding:26px 0 22px;
+  }
+  h1.big{
+    font-size:clamp(44px,7vw,96px);
+    line-height:0.92;
+    font-weight:800;
+    letter-spacing:-0.02em;
+    margin:0;
+    grid-column:1/10;
+  }
+  .subhead{
+    grid-column:1/13;
+    font-size:15px;
+    color:var(--gray);
+    max-width:760px;
+    line-height:1.5;
+    margin-top:14px;
+    font-weight:400;
+  }
+  .subhead strong{color:var(--ink);font-weight:600;}
+
+  /* stat cells - numbered swiss poster style */
+  .stat-strip{
+    border-top:1px solid var(--ink);
+    border-bottom:1px solid var(--ink);
+  }
+  .stat-cell{
+    grid-column:span 3;
+    padding:18px 0 20px;
+    border-right:1px solid var(--rule-soft);
+  }
+  .stat-cell:last-child{border-right:none;}
+  .stat-num{
+    font-size:10px;
+    color:var(--red);
+    letter-spacing:.14em;
+    font-weight:700;
+  }
+  .stat-value{
+    font-size:clamp(30px,4vw,52px);
+    font-weight:800;
+    line-height:1.05;
+    letter-spacing:-0.01em;
+    margin-top:6px;
+  }
+  .stat-label{
+    font-size:12px;
+    color:var(--gray);
+    margin-top:4px;
+    letter-spacing:.02em;
+  }
+
+  section{
+    padding:56px 0 0;
+  }
+  section.tight{padding-top:40px;}
+  .section-head{
+    grid-column:1/13;
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    border-bottom:1px solid var(--ink);
+    padding-bottom:10px;
+    margin-bottom:22px;
+  }
+  .section-head h2{
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:.14em;
+    font-weight:700;
+    margin:0;
+  }
+  .section-head h2 em{color:var(--red);font-style:normal;}
+  .section-note{
+    font-size:12px;
+    color:var(--gray);
+    font-family:'Roboto Mono',monospace;
+  }
+
+  /* ============ RANKED BAR CHART ============ */
+  .rank-wrap{grid-column:1/13;}
+  .rank-row{
+    display:grid;
+    grid-template-columns:28px 190px 1fr 92px 70px;
+    align-items:center;
+    column-gap:14px;
+    border-bottom:1px solid var(--rule-soft);
+    padding:9px 0;
+    cursor:pointer;
+    transition:background .1s;
+  }
+  .rank-row:hover{background:var(--paper-2);}
+  .rank-row.active{background:#111;color:var(--paper);}
+  .rank-row.active .rank-provider{color:#bcb9ae;}
+  .rank-row.active .bar-track{background:#3a3a3a;}
+  .rank-idx{font-size:11px;color:var(--gray);font-family:'Roboto Mono',monospace;}
+  .rank-row.active .rank-idx{color:#999;}
+  .rank-name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .rank-provider{font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.06em;display:block;font-weight:500;margin-top:1px;}
+  .bar-track{
+    position:relative;
+    height:16px;
+    background:var(--paper-2);
+  }
+  .bar-fill{
+    position:absolute;top:0;left:0;height:100%;
+    background:var(--red);
+  }
+  .rank-row.active .bar-fill{background:#ff5b44;}
+  .rank-pct{font-size:14px;font-weight:700;text-align:right;font-family:'Roboto Mono',monospace;}
+  .rank-n{font-size:11px;color:var(--gray);text-align:right;font-family:'Roboto Mono',monospace;}
+  .rank-row.active .rank-n{color:#999;}
+
+  /* ============ SCATTER MULTIPLES ============ */
+  .scatter-grid{
+    grid-column:1/13;
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    column-gap:24px;
+  }
+  .scatter-card{border-right:1px solid var(--rule-soft);padding-right:0;}
+  .scatter-card:last-child{border-right:none;}
+  .scatter-title{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    font-weight:700;
+    margin-bottom:2px;
+  }
+  .scatter-sub{
+    font-size:11px;
+    color:var(--gray);
+    margin-bottom:10px;
+    font-family:'Roboto Mono',monospace;
+  }
+  svg.scatter{width:100%;height:auto;overflow:visible;}
+  .axis-line{stroke:var(--ink);stroke-width:1;}
+  .grid-tick{stroke:var(--rule-soft);stroke-width:1;}
+  .tick-label{font-size:9px;fill:var(--gray);font-family:'Roboto Mono',monospace;}
+  .dot{fill:var(--red);stroke:var(--paper);stroke-width:1;cursor:pointer;transition:r .1s;}
+  .dot.active{fill:var(--ink);r:6;}
+  .dot-label{font-size:9px;fill:var(--ink);font-family:'Roboto Mono',monospace;pointer-events:none;}
+  .axis-caption{font-size:9px;fill:var(--gray);text-transform:uppercase;letter-spacing:.06em;}
+
+  /* ============ TABLE ============ */
+  table.data{
+    grid-column:1/13;
+    width:100%;
+    border-collapse:collapse;
+    font-size:12.5px;
+  }
+  table.data thead th{
+    text-align:left;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    font-weight:700;
+    padding:0 10px 10px 0;
+    border-bottom:2px solid var(--ink);
+    cursor:pointer;
+    white-space:nowrap;
+    user-select:none;
+  }
+  table.data thead th:hover{color:var(--red);}
+  table.data thead th.sorted::after{content:" ▾";font-size:9px;color:var(--red);}
+  table.data thead th.sorted.asc::after{content:" ▴";}
+  table.data td{
+    padding:8px 10px 8px 0;
+    border-bottom:1px solid var(--rule-soft);
+    font-family:'Roboto Mono',monospace;
+    white-space:nowrap;
+  }
+  table.data td.name-cell{font-family:'Inter',sans-serif;font-weight:600;}
+  table.data td.num{text-align:right;}
+  table.data tbody tr{cursor:pointer;}
+  table.data tbody tr:hover{background:var(--paper-2);}
+  table.data tbody tr.active{background:#111;color:var(--paper);}
+  table.data tbody tr.active td{border-bottom-color:#333;}
+  .provider-tag{
+    display:inline-block;
+    font-size:9px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--gray);
+  }
+
+  footer{
+    margin-top:70px;
+    border-top:3px solid var(--ink);
+    padding:22px 0 40px;
+    grid-column:1/13;
+  }
+  footer .grid12{align-items:start;}
+  .foot-col{grid-column:span 4;font-size:11px;color:var(--gray);line-height:1.6;}
+  .foot-col strong{color:var(--ink);display:block;font-size:11px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;}
+
+  @media (max-width:900px){
+    .sheet{padding:0 18px;}
+    .scatter-grid{grid-template-columns:1fr;row-gap:36px;}
+    .scatter-card{border-right:none;padding-bottom:20px;border-bottom:1px solid var(--rule-soft);}
+    .stat-cell{grid-column:span 6;}
+    .rank-row{grid-template-columns:22px 120px 1fr 70px;}
+    .rank-n{display:none;}
+    table.data{font-size:11px;}
+    h1.big{grid-column:1/13;}
+  }
+</style>
+</head>
+<body>
+
+<div class="grid-overlay">
+  <div></div><div></div><div></div><div></div><div></div><div></div>
+  <div></div><div></div><div></div><div></div><div></div><div></div>
+</div>
+
+<div class="sheet">
+
+  <header class="masthead">
+    <div class="masthead-row">
+      <div class="brand-index">Fig. <span>01</span> — Benchmark Report / Public Dataset</div>
+      <button class="grid-toggle" id="gridToggle">Show grid</button>
+    </div>
+    <div class="grid12 title-block">
+      <h1 class="big">TROJAN<br>HORSE<br>BENCH.</h1>
+      <p class="subhead">A false premise is smuggled inside an ordinary-looking question and sent to <strong>20 frontier models</strong> across <strong>4 prompts</strong>. Every answer is graded on one binary fact: did the model <strong>catch the trojan</strong> and correct the premise, or did it walk straight through the gate.</p>
+    </div>
+  </header>
+
+  <div class="grid12 stat-strip">
+    <div class="stat-cell">
+      <div class="stat-num">01 — MODELS</div>
+      <div class="stat-value">20</div>
+      <div class="stat-label">frontier models tested, 10 providers</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num">02 — PROMPTS</div>
+      <div class="stat-value">4</div>
+      <div class="stat-label">distinct false-premise questions</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num">03 — GRADED</div>
+      <div class="stat-value">400</div>
+      <div class="stat-label">answers judged by a random 3-model panel</div>
+    </div>
+    <div class="stat-cell">
+      <div class="stat-num">04 — MEDIAN CATCH</div>
+      <div class="stat-value" id="medianStat">—</div>
+      <div class="stat-label">median detection rate across all 20 models</div>
+    </div>
+  </div>
+
+  <section>
+    <div class="grid12">
+      <div class="section-head">
+        <h2>Detection Rate — <em>Ranked</em></h2>
+        <div class="section-note">% of graded answers that caught the false premise · click a row</div>
+      </div>
+      <div class="rank-wrap" id="rankList"></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="grid12">
+      <div class="section-head">
+        <h2>Detection vs. <em>Cost, Tokens, Latency</em></h2>
+        <div class="section-note">log-x scatter · red = model · numerals key to table below</div>
+      </div>
+      <div class="scatter-grid">
+        <div class="scatter-card">
+          <div class="scatter-title">Detection vs. Cost per Pass</div>
+          <div class="scatter-sub">x: USD, log scale — y: detection %</div>
+          <svg class="scatter" id="scatterCost" viewBox="0 0 380 320"></svg>
+        </div>
+        <div class="scatter-card">
+          <div class="scatter-title">Detection vs. Output Tokens</div>
+          <div class="scatter-sub">x: avg tokens, log scale — y: detection %</div>
+          <svg class="scatter" id="scatterTokens" viewBox="0 0 380 320"></svg>
+        </div>
+        <div class="scatter-card">
+          <div class="scatter-title">Detection vs. Latency</div>
+          <div class="scatter-sub">x: avg seconds, log scale — y: detection %</div>
+          <svg class="scatter" id="scatterLatency" viewBox="0 0 380 320"></svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="grid12">
+      <div class="section-head">
+        <h2>Full Dataset</h2>
+        <div class="section-note">click any header to sort · click a row to cross-highlight</div>
+      </div>
+      <table class="data" id="dataTable">
+        <thead>
+          <tr>
+            <th data-key="idx">No.</th>
+            <th data-key="model">Model</th>
+            <th data-key="provider">Provider</th>
+            <th data-key="performance" class="sorted">Detection</th>
+            <th data-key="spotted">Spotted</th>
+            <th data-key="judged">Judged</th>
+            <th data-key="avg_output_tokens">Avg Tokens</th>
+            <th data-key="avg_latency_seconds">Avg Latency (s)</th>
+            <th data-key="cost_per_pass_usd">Cost / Pass</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <div class="grid12">
+      <div class="foot-col">
+        <strong>Method</strong>
+        Each model answers the same 4 planted-premise prompts, 5 runs each. Three judges are drawn at random from a cheap-model panel, seeded per answer, provider-disjoint from the model under test. A verdict requires a panel majority; ties are left ungraded.
+      </div>
+      <div class="foot-col">
+        <strong>Reading the numbers</strong>
+        Cost is Vercel AI Gateway list price (marketCost), not discounted API billing. Output tokens include reasoning/thinking tokens where the provider bills for them.
+      </div>
+      <div class="foot-col">
+        <strong>Source</strong>
+        Trojan Horse Benchmark · dominik-sv.github.io/trojan-horse · Data embedded inline, 400 graded answers, run archive is immutable.
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+/* ============================================================
+   DATA — embedded, authoritative, from report/models.csv
+   ============================================================ */
+const RAW = [
+["default","alibaba/qwen3.8-max",20,9,0.450,17439,133.3,0.41940],
+["default","anthropic/claude-fable-5.1",20,10,0.500,2783,40.3,0.57119],
+["default","anthropic/claude-haiku-4.5",20,0,0.000,638,8.3,0.01379],
+["default","anthropic/claude-opus-5.5",20,19,0.950,2776,30.5,0.22788],
+["default","anthropic/claude-sonnet-5",20,0,0.000,2778,30.3,0.11403],
+["default","deepseek/deepseek-v4-pro",20,3,0.150,7750,87.5,0.06160],
+["default","deepseek/deepseek-v4.1-flash",20,3,0.150,8526,54.6,0.03416],
+["default","google/gemini-3.1-pro-preview",20,0,0.000,2407,20.7,0.11742],
+["default","google/gemini-3.5-flash-lite",20,0,0.000,749,4.3,0.00778],
+["default","google/gemini-3.8-flash",20,0,0.000,2153,17.1,0.03300],
+["default","meta/llama-4-maverick",20,0,0.000,511,7.9,0.00183],
+["default","mistral/mistral-large-3",20,0,0.000,1151,15.5,0.00737],
+["default","moonshotai/kimi-k3",20,8,0.400,8664,65.8,0.52140],
+["default","openai/gpt-6-astra",20,20,1.000,974,23.3,0.20462],
+["default","openai/gpt-6-luna",20,10,0.500,1721,16.5,0.00354],
+["default","openai/gpt-6-sol",19,19,1.000,670,11.9,0.02878],
+["default","spacexai/grok-4.1-fast-reasoning",20,0,0.000,1769,9.7,0.00377],
+["default","spacexai/grok-4.7",20,7,0.350,3303,38.2,0.05001],
+["default","zai/glm-5.3",20,3,0.150,1976,19.6,0.03526],
+["default","zai/glm-5.3-flash",20,4,0.200,2896,82.6,0.00594]
+];
+
+const DATA = RAW.map((r,i)=>{
+  const [effort, model, judged, spotted, performance, tokens, latency, cost] = r;
+  const provider = model.split("/")[0];
+  const name = model.split("/")[1];
+  return {i, model, provider, name, judged, spotted, performance, avg_output_tokens:tokens, avg_latency_seconds:latency, cost_per_pass_usd:cost};
+});
+
+let activeIdx = null;
+
+/* ---------- median stat ---------- */
+(function(){
+  const perf = DATA.map(d=>d.performance).sort((a,b)=>a-b);
+  const mid = Math.floor(perf.length/2);
+  const median = perf.length % 2 ? perf[mid] : (perf[mid-1]+perf[mid])/2;
+  document.getElementById('medianStat').textContent = (median*100).toFixed(0)+'%';
+})();
+
+/* ---------- grid toggle ---------- */
+document.getElementById('gridToggle').addEventListener('click', ()=>{
+  document.body.classList.toggle('show-grid');
+});
+
+/* ---------- ranked bar list ---------- */
+function renderRankList(){
+  const wrap = document.getElementById('rankList');
+  wrap.innerHTML = '';
+  const sorted = [...DATA].sort((a,b)=>b.performance - a.performance);
+  sorted.forEach((d, pos)=>{
+    const row = document.createElement('div');
+    row.className = 'rank-row' + (d.i===activeIdx ? ' active':'');
+    row.dataset.idx = d.i;
+    row.innerHTML = `
+      <div class="rank-idx">${String(pos+1).padStart(2,'0')}</div>
+      <div>
+        <div class="rank-name">${d.name}</div>
+        <span class="rank-provider">${d.provider}</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(d.performance*100).toFixed(1)}%"></div></div>
+      <div class="rank-pct">${(d.performance*100).toFixed(0)}%</div>
+      <div class="rank-n">${d.spotted}/${d.judged}</div>
+    `;
+    row.addEventListener('click', ()=>setActive(d.i));
+    wrap.appendChild(row);
+  });
+}
+
+/* ---------- scatter charts (hand-drawn SVG, log-x) ---------- */
+function renderScatter(svgId, xKey, xFormat, axisCaption){
+  const svg = document.getElementById(svgId);
+  const W = 380, H = 320;
+  const padL = 42, padR = 14, padT = 14, padB = 40;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  const xs = DATA.map(d=>d[xKey]).filter(v=>v>0);
+  const xMin = Math.min(...xs) * 0.85;
+  const xMax = Math.max(...xs) * 1.15;
+  const logMin = Math.log10(xMin), logMax = Math.log10(xMax);
+
+  function xPos(v){
+    const vv = Math.max(v, xMin);
+    return padL + ( (Math.log10(vv)-logMin) / (logMax-logMin) ) * plotW;
+  }
+  function yPos(perf){
+    return padT + plotH - (perf * plotH);
+  }
+
+  let svgContent = '';
+
+  // y gridlines + labels at 0/25/50/75/100
+  [0,0.25,0.5,0.75,1].forEach(p=>{
+    const y = yPos(p);
+    svgContent += `<line x1="${padL}" x2="${W-padR}" y1="${y}" y2="${y}" class="grid-tick"/>`;
+    svgContent += `<text x="${padL-8}" y="${y+3}" text-anchor="end" class="tick-label">${(p*100).toFixed(0)}</text>`;
+  });
+
+  // x tick marks — nice log ticks
+  const tickCandidates = [0.001,0.003,0.01,0.03,0.1,0.3,1,3,10,30,100,300,1000,3000,10000,30000];
+  tickCandidates.filter(t=>t>=xMin && t<=xMax).forEach(t=>{
+    const x = xPos(t);
+    svgContent += `<line x1="${x}" x2="${x}" y1="${padT}" y2="${padT+plotH}" class="grid-tick"/>`;
+    svgContent += `<text x="${x}" y="${H-padB+16}" text-anchor="middle" class="tick-label">${xFormat(t)}</text>`;
+  });
+
+  // axes
+  svgContent += `<line x1="${padL}" x2="${padL}" y1="${padT}" y2="${padT+plotH}" class="axis-line"/>`;
+  svgContent += `<line x1="${padL}" x2="${W-padR}" y1="${padT+plotH}" y2="${padT+plotH}" class="axis-line"/>`;
+  svgContent += `<text x="${padL}" y="${H-4}" class="axis-caption">${axisCaption}</text>`;
+  svgContent += `<text x="${padL-32}" y="${padT-2}" class="axis-caption">DETECT %</text>`;
+
+  // dots
+  DATA.forEach(d=>{
+    if(d[xKey] <= 0) return;
+    const x = xPos(d[xKey]);
+    const y = yPos(d.performance);
+    const isActive = d.i === activeIdx;
+    svgContent += `<circle class="dot${isActive?' active':''}" data-idx="${d.i}" cx="${x}" cy="${y}" r="${isActive?6:4}"></circle>`;
+    if(isActive){
+      svgContent += `<text class="dot-label" x="${x+9}" y="${y-9}">${d.name} · ${(d.performance*100).toFixed(0)}%</text>`;
+    }
+  });
+
+  svg.innerHTML = svgContent;
+
+  svg.querySelectorAll('.dot').forEach(dot=>{
+    dot.addEventListener('click', ()=> setActive(+dot.dataset.idx));
+  });
+}
+
+function fmtCost(v){ return v < 1 ? '$'+v.toFixed(v<0.01?3:2) : '$'+v.toFixed(0); }
+function fmtTokens(v){ return v >= 1000 ? (v/1000).toFixed(v>=10000?0:1)+'k' : v.toFixed(0); }
+function fmtSeconds(v){ return v.toFixed(0)+'s'; }
+
+function renderAllScatters(){
+  renderScatter('scatterCost', 'cost_per_pass_usd', fmtCost, 'COST/PASS (LOG)');
+  renderScatter('scatterTokens', 'avg_output_tokens', fmtTokens, 'AVG OUTPUT TOKENS (LOG)');
+  renderScatter('scatterLatency', 'avg_latency_seconds', fmtSeconds, 'AVG LATENCY (LOG)');
+}
+
+/* ---------- table ---------- */
+let sortKey = 'performance';
+let sortAsc = false;
+
+function renderTable(){
+  const tbody = document.getElementById('tableBody');
+  const sorted = [...DATA].sort((a,b)=>{
+    let av = a[sortKey], bv = b[sortKey];
+    if(typeof av === 'string'){ av = av.toLowerCase(); bv = bv.toLowerCase(); }
+    if(av < bv) return sortAsc ? -1 : 1;
+    if(av > bv) return sortAsc ? 1 : -1;
+    return 0;
+  });
+  tbody.innerHTML = '';
+  sorted.forEach((d,pos)=>{
+    const tr = document.createElement('tr');
+    tr.className = d.i === activeIdx ? 'active' : '';
+    tr.dataset.idx = d.i;
+    tr.innerHTML = `
+      <td class="num">${String(pos+1).padStart(2,'0')}</td>
+      <td class="name-cell">${d.name}</td>
+      <td><span class="provider-tag">${d.provider}</span></td>
+      <td class="num">${(d.performance*100).toFixed(0)}%</td>
+      <td class="num">${d.spotted}</td>
+      <td class="num">${d.judged}</td>
+      <td class="num">${d.avg_output_tokens.toLocaleString()}</td>
+      <td class="num">${d.avg_latency_seconds.toFixed(1)}</td>
+      <td class="num">$${d.cost_per_pass_usd.toFixed(5)}</td>
+    `;
+    tr.addEventListener('click', ()=> setActive(d.i));
+    tbody.appendChild(tr);
+  });
+
+  document.querySelectorAll('#dataTable thead th').forEach(th=>{
+    th.classList.remove('sorted','asc');
+    if(th.dataset.key === sortKey){
+      th.classList.add('sorted');
+      if(sortAsc) th.classList.add('asc');
+    }
+  });
+}
+
+document.querySelectorAll('#dataTable thead th').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const key = th.dataset.key;
+    if(sortKey === key){ sortAsc = !sortAsc; }
+    else { sortKey = key; sortAsc = false; }
+    renderTable();
+  });
+});
+
+/* ---------- cross-highlight ---------- */
+function setActive(idx){
+  activeIdx = (activeIdx === idx) ? null : idx;
+  renderRankList();
+  renderAllScatters();
+  renderTable();
+}
+
+/* ---------- init ---------- */
+renderRankList();
+renderAllScatters();
+renderTable();
+</script>
+
+</body>
+</html>
