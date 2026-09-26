@@ -59,18 +59,18 @@ TEMPLATE = """<!doctype html>
 <title>Trojan Horse Benchmark</title>
 <style>
 :root {
-  color-scheme: dark;
-  --page: #0a0d14;
-  --surface-1: #12161f;
-  --surface-2: #171c27;
-  --text-primary: #f2f4f8;
-  --text-secondary: #9aa4b8;
-  --text-muted: #6b7488;
-  --grid: #232937;
-  --baseline: #323a4c;
-  --border: rgba(255,255,255,0.08);
-  --accent: #5b8def;
-  --accent-soft: rgba(91,141,239,0.15);
+  color-scheme: light;
+  --page: #f9f9f7;
+  --surface-1: #ffffff;
+  --surface-2: #f3f2ef;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --grid: #e6e5e0;
+  --baseline: #c3c2b7;
+  --border: rgba(11,11,11,0.10);
+  --accent: #2a78d6;
+  --accent-soft: rgba(42,120,214,0.10);
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; }
@@ -78,8 +78,8 @@ body {
   margin: 0;
   background: var(--page);
   background-image:
-    radial-gradient(circle at 15% 0%, rgba(91,141,239,0.10), transparent 45%),
-    radial-gradient(circle at 85% 10%, rgba(233,148,58,0.08), transparent 40%);
+    radial-gradient(circle at 15% 0%, rgba(42,120,214,0.06), transparent 45%),
+    radial-gradient(circle at 85% 10%, rgba(235,104,52,0.05), transparent 40%);
   background-attachment: fixed;
   color: var(--text-primary);
   font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -95,6 +95,7 @@ h1 { font-size: 1.7rem; margin: 0 0 6px; letter-spacing: -0.01em; }
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 16px 18px;
+  box-shadow: 0 1px 3px rgba(11,11,11,0.04);
 }
 .stat-tile .label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 8px; }
 .stat-tile .value { font-size: 1.5rem; font-weight: 650; font-variant-numeric: tabular-nums; }
@@ -126,6 +127,7 @@ h1 { font-size: 1.7rem; margin: 0 0 6px; letter-spacing: -0.01em; }
   border-radius: 14px;
   padding: 22px 24px;
   margin-bottom: 22px;
+  box-shadow: 0 1px 3px rgba(11,11,11,0.04);
 }
 .card h2 { font-size: 1.05rem; margin: 0 0 4px; font-weight: 650; }
 .card .desc { color: var(--text-secondary); font-size: 0.85rem; margin: 0 0 18px; }
@@ -152,6 +154,7 @@ tr.hidden-row { display: none; }
 svg text { fill: var(--text-muted); font-size: 11px; }
 .axis-title { fill: var(--text-secondary) !important; font-size: 12px !important; font-weight: 600; }
 .dot-pt { stroke: var(--surface-1); stroke-width: 1.5; cursor: pointer; }
+.point-label { fill: var(--text-secondary); font-size: 10px; pointer-events: none; }
 .dot-hit { fill: transparent; cursor: pointer; }
 .frontier-line { fill: none; stroke: var(--text-secondary); stroke-width: 1.5; stroke-dasharray: 5 4; opacity: 0.6; }
 .frontier-pt { fill: none; stroke-width: 2; }
@@ -230,18 +233,18 @@ const DATA = __DATA__;
 
 // Fixed provider -> color mapping so colors stay stable across rebuilds.
 const PROVIDER_COLORS = {
-  openai:      "#3987e5",
-  anthropic:   "#e9943a",
-  google:      "#2fbf8f",
-  spacexai:    "#e0b400",
-  deepseek:    "#e2679a",
-  zai:         "#3fae4a",
-  alibaba:     "#9085e9",
-  moonshotai:  "#e66767",
-  mistral:     "#b9834a",
-  meta:        "#7c93a0",
+  openai:      "#2a78d6",
+  anthropic:   "#eb6834",
+  google:      "#1baf7a",
+  spacexai:    "#c98500",
+  deepseek:    "#d55181",
+  zai:         "#008300",
+  alibaba:     "#4a3aa7",
+  moonshotai:  "#e34948",
+  mistral:     "#8b5e34",
+  meta:        "#4d6672",
 };
-const FALLBACK_COLORS = ["#5b8def", "#e9943a", "#2fbf8f", "#e0b400", "#e2679a"];
+const FALLBACK_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#c98500", "#d55181"];
 let fallbackIdx = 0;
 function colorFor(provider) {
   if (!PROVIDER_COLORS[provider]) {
@@ -350,7 +353,7 @@ function rerenderAll() { renderers.forEach(fn => fn()); }
 
 // ---- scatter charts with pareto frontier ----
 function computeFrontier(points, xKey) {
-  const sorted = [...points].sort((a, b) => a[xKey] - b[xKey]);
+  const sorted = [...points].filter(p => p.performance > 0).sort((a, b) => a[xKey] - b[xKey]);
   const frontier = [];
   let runningMax = -Infinity;
   sorted.forEach(p => {
@@ -421,6 +424,14 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
       dot.classList.add("dot-pt");
       if (onFrontier) { dot.style.filter = `drop-shadow(0 0 4px ${c})`; }
 
+      const nearRight = cx > W - PAD_R - 90;
+      const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      label.setAttribute("x", nearRight ? cx - 9 : cx + 9);
+      label.setAttribute("y", cy + 3);
+      label.setAttribute("text-anchor", nearRight ? "end" : "start");
+      label.setAttribute("class", "point-label");
+      label.textContent = shortName(m.model);
+
       const tip = (e) => showTip(e, `
         <div><b>${m.model}</b></div>
         <div class="tt-row">${xLabel}: <span class="tt-val">${xFmt(m[xKey])}</span></div>
@@ -432,6 +443,7 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
 
       svg.appendChild(hit);
       svg.appendChild(dot);
+      svg.appendChild(label);
     });
 
     el.appendChild(svg);
