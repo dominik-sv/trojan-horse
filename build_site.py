@@ -118,6 +118,14 @@ h1 { font-family: var(--serif-display); font-weight: 900; font-size: 2.1rem; mar
 .stat-tile .value.small { font-size: 1.15rem; }
 .stat-tile .value .unit { font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
 .stat-tile .sub { font-family: var(--sans); font-size: 0.76rem; color: var(--text-secondary); margin-top: 4px; }
+.stat-tile.grouped { flex-basis: auto; }
+.group-row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.group-box {
+  border: 1px solid var(--border); border-left: 3px solid var(--box-color, var(--accent));
+  border-radius: 2px; padding: 7px 11px; background: var(--page); min-width: 68px;
+}
+.group-box .key { font-family: var(--sans); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; color: var(--text-muted); }
+.group-box .val { font-family: var(--serif-display); font-size: 1.1rem; font-weight: 700; margin-top: 2px; font-variant-numeric: tabular-nums; }
 
 .legend-row {
   display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
@@ -358,23 +366,19 @@ function pooledRate(models) {
   return spotted / judged;
 }
 
-// Buckets `models` by `keyOf(m)` and returns each bucket's pooled rate, best first.
-function groupRates(models, keyOf) {
+// Buckets `models` by `keyOf(m)` and returns each bucket's pooled rate and color, best
+// (highest detection rate) first.
+function groupRates(models, dim) {
+  const keyOf = DIMENSIONS[dim].keyOf;
   const buckets = new Map();
   models.forEach(m => {
     const key = keyOf(m);
     (buckets.get(key) || buckets.set(key, []).get(key)).push(m);
   });
   return [...buckets.entries()]
-    .map(([key, bucket]) => ({ key, rate: pooledRate(bucket) }))
+    .map(([key, bucket]) => ({ key, rate: pooledRate(bucket), color: colorFor(dim, key) }))
     .filter(g => g.rate !== null)
     .sort((a, b) => b.rate - a.rate);
-}
-
-function groupTile(label, groups, bestWorstOnly) {
-  if (groups.length === 0) return { label, value: "-" };
-  const shown = bestWorstOnly && groups.length > 2 ? [groups[0], groups[groups.length - 1]] : groups;
-  return { label, value: shown.map(g => `${g.key} ${fmtPct(g.rate)}`).join(" · ") };
 }
 
 (function renderStats() {
@@ -382,17 +386,27 @@ function groupTile(label, groups, bestWorstOnly) {
   function draw() {
     const vis = visibleModels();
     const overall = pooledRate(vis);
-    const tiles = [
-      { label: "Overall detection rate", value: overall === null ? "-" : fmtPct(overall) },
-      groupTile("Open vs. closed-source", groupRates(vis, m => m.license), false),
-      groupTile("By country", groupRates(vis, m => m.country), true),
-    ];
-    el.innerHTML = tiles.map(t => `
+
+    let html = `
       <div class="stat-tile">
-        <div class="label">${t.label}</div>
-        <div class="value ${String(t.value).length > 6 ? 'small' : ''}">${t.value}</div>
-        ${t.sub ? `<div class="sub">${t.sub}</div>` : ""}
-      </div>`).join("");
+        <div class="label">Overall detection rate</div>
+        <div class="value">${overall === null ? "-" : fmtPct(overall)}</div>
+      </div>`;
+
+    [["Open vs. closed-source", "license"], ["By country", "country"]].forEach(([label, dim]) => {
+      const groups = groupRates(vis, dim);
+      html += `<div class="stat-tile grouped"><div class="label">${label}</div><div class="group-row">`;
+      html += groups.length === 0
+        ? '<div class="group-box"><div class="val">-</div></div>'
+        : groups.map(g => `
+          <div class="group-box" style="--box-color:${g.color}">
+            <div class="key">${g.key}</div>
+            <div class="val">${fmtPct(g.rate)}</div>
+          </div>`).join("");
+      html += `</div></div>`;
+    });
+
+    el.innerHTML = html;
   }
   renderers.push(draw);
   draw();
