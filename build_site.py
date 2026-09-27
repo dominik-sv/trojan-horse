@@ -11,6 +11,24 @@ from pathlib import Path
 REPORT_DIR = Path("report")
 DOCS_DIR = Path("docs")
 
+# Headquarters country per provider - a clean 1:1, since every provider here is one company.
+PROVIDER_COUNTRY = {
+    "openai": "USA", "anthropic": "USA", "google": "USA", "spacexai": "USA",
+    "deepseek": "China", "zai": "China", "alibaba": "China", "moonshotai": "China",
+    "mistral": "France", "meta": "USA",
+}
+# Whether a provider's models ship as open weights by default. A provider's flagship model
+# can diverge from this (see MODEL_LICENSE_OVERRIDE) even when they also ship open models.
+PROVIDER_LICENSE = {
+    "openai": "closed", "anthropic": "closed", "google": "closed", "spacexai": "closed",
+    "deepseek": "open", "zai": "open", "alibaba": "open", "moonshotai": "open",
+    "mistral": "open", "meta": "open",
+}
+MODEL_LICENSE_OVERRIDE = {
+    "qwen3.8-max": "closed",  # Alibaba's proprietary top tier, unlike their open Qwen weights
+    "mistral-large-3": "closed",  # Mistral's commercial flagship, unlike their open models
+}
+
 
 def read_csv(path):
     with open(path, newline="", encoding="utf-8") as f:
@@ -23,15 +41,18 @@ def build_data():
 
     models = []
     for r in models_rows:
+        provider, _, short_name = r["model"].partition("/")
         models.append({
             "model": r["model"],
-            "provider": r["model"].split("/")[0],
+            "provider": provider,
+            "license": MODEL_LICENSE_OVERRIDE.get(short_name, PROVIDER_LICENSE.get(provider, "closed")),
+            "country": PROVIDER_COUNTRY.get(provider, "other"),
             "judged": int(r["judged"]),
             "spotted": int(r["spotted"]),
             "performance": float(r["performance"]),
             "avg_output_tokens": float(r["avg_output_tokens"]),
             "avg_latency_seconds": float(r["avg_latency_seconds"]),
-            "cost_per_pass_usd": float(r["cost_per_pass_usd"]),
+            "cost_per_pass_usd": float(r["cost_per_pass_usd"]) if r["cost_per_pass_usd"] else None,
         })
     models.sort(key=lambda m: -m["performance"])
 
@@ -83,8 +104,9 @@ header.top { margin-bottom: 28px; border-bottom: 3px double var(--text-primary);
 h1 { font-family: var(--serif-display); font-weight: 900; font-size: 2.1rem; margin: 0 0 8px; letter-spacing: -0.01em; }
 .subtitle { font-family: var(--sans); color: var(--text-secondary); font-size: 0.9rem; margin: 0; max-width: 640px; line-height: 1.5; }
 
-.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 24px 0; }
+.stat-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0; }
 .stat-tile {
+  flex: 0 1 220px;
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-top: 2px solid var(--text-primary);
@@ -114,6 +136,14 @@ h1 { font-family: var(--serif-display); font-weight: 900; font-size: 2.1rem; mar
 .chip.active { color: var(--text-primary); border-color: var(--chip-color, var(--accent)); background: color-mix(in srgb, var(--chip-color, var(--accent)) 14%, var(--surface-1)); }
 .chip.inactive { opacity: 0.45; }
 .chip-all { font-weight: 700; }
+
+.dim-switch { display: flex; gap: 4px; margin-right: 10px; }
+.dim-switch button {
+  font-family: var(--sans); font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-1);
+  color: var(--text-secondary); cursor: pointer;
+}
+.dim-switch button.active { color: #fff; background: var(--accent); border-color: var(--accent); }
 
 .card {
   background: var(--surface-1);
@@ -214,35 +244,51 @@ a { color: var(--accent); }
 <script>
 const DATA = __DATA__;
 
-// Fixed provider -> color mapping so colors stay stable across rebuilds.
-// A restrained newsprint-infographic palette: ink-compatible, desaturated hues.
-const PROVIDER_COLORS = {
-  openai:      "#a3161a",
-  anthropic:   "#1c5cab",
-  google:      "#3d6b35",
-  spacexai:    "#a66a1e",
-  deepseek:    "#6b3fa0",
-  zai:         "#2f6f6b",
-  alibaba:     "#7a4a2b",
-  moonshotai:  "#ab4967",
-  mistral:     "#5c6b8a",
-  meta:        "#6e6e5a",
-};
+// A restrained newsprint-infographic palette: ink-compatible, desaturated hues. Each
+// dimension you can color/group by keeps its own fixed map plus a fallback palette for any
+// category it doesn't have a color for yet.
 const FALLBACK_COLORS = ["#a3161a", "#1c5cab", "#3d6b35", "#a66a1e", "#6b3fa0"];
-let fallbackIdx = 0;
-function colorFor(provider) {
-  if (!PROVIDER_COLORS[provider]) {
-    PROVIDER_COLORS[provider] = FALLBACK_COLORS[fallbackIdx++ % FALLBACK_COLORS.length];
-  }
-  return PROVIDER_COLORS[provider];
-}
+const DIMENSIONS = {
+  provider: {
+    label: "Provider",
+    keyOf: m => m.provider,
+    colors: {
+      openai: "#a3161a", anthropic: "#1c5cab", google: "#3d6b35", spacexai: "#a66a1e",
+      deepseek: "#6b3fa0", zai: "#2f6f6b", alibaba: "#7a4a2b", moonshotai: "#ab4967",
+      mistral: "#5c6b8a", meta: "#6e6e5a",
+    },
+  },
+  license: {
+    label: "License",
+    keyOf: m => m.license,
+    colors: { open: "#2f6f6b", closed: "#a3161a" },
+  },
+  country: {
+    label: "Country",
+    keyOf: m => m.country,
+    colors: { USA: "#1c5cab", China: "#a3161a", France: "#a66a1e" },
+  },
+};
+let currentDim = "provider";
 
-const providers = [...new Set(DATA.models.map(m => m.provider))].sort();
-const activeProviders = new Set(providers);
+function categoriesFor(dim) { return [...new Set(DATA.models.map(DIMENSIONS[dim].keyOf))].sort(); }
+
+const activeCategories = {};
+for (const dim in DIMENSIONS) activeCategories[dim] = new Set(categoriesFor(dim));
+
+let fallbackIdx = 0;
+function colorFor(dim, key) {
+  const colors = DIMENSIONS[dim].colors;
+  if (!colors[key]) colors[key] = FALLBACK_COLORS[fallbackIdx++ % FALLBACK_COLORS.length];
+  return colors[key];
+}
 
 function shortName(m) { return m.split("/")[1] || m; }
 function fmtPct(x) { return (x * 100).toFixed(0) + "%"; }
-function visibleModels() { return DATA.models.filter(m => activeProviders.has(m.provider)); }
+function visibleModels() {
+  const active = activeCategories[currentDim], keyOf = DIMENSIONS[currentDim].keyOf;
+  return DATA.models.filter(m => active.has(keyOf(m)));
+}
 
 const tooltip = document.getElementById("tooltip");
 function showTip(evt, html) {
@@ -256,30 +302,45 @@ function hideTip() { tooltip.style.opacity = 0; }
 const renderers = [];
 function rerenderAll() { renderers.forEach(fn => fn()); }
 
-// ---- provider legend ----
+// ---- dimension switch + legend ----
 (function renderLegend() {
   const el = document.getElementById("provider-legend");
   function draw() {
-    const allOn = activeProviders.size === providers.length;
-    let html = '<span class="legend-title">Providers</span>';
+    const categories = categoriesFor(currentDim);
+    const active = activeCategories[currentDim];
+    const allOn = active.size === categories.length;
+
+    let html = '<span class="dim-switch">';
+    for (const dim in DIMENSIONS) {
+      html += `<button data-dim="${dim}" class="${dim === currentDim ? 'active' : ''}">${DIMENSIONS[dim].label}</button>`;
+    }
+    html += '</span>';
+    html += `<span class="legend-title">${DIMENSIONS[currentDim].label}</span>`;
     html += `<span class="chip chip-all" id="chip-all">${allOn ? "Clear all" : "Select all"}</span>`;
-    providers.forEach(p => {
-      const c = colorFor(p);
-      const active = activeProviders.has(p);
-      html += `<span class="chip ${active ? 'active' : 'inactive'}" data-provider="${p}" style="--chip-color:${c}"><span class="dot" style="background:${c}"></span>${p}</span>`;
+    categories.forEach(key => {
+      const c = colorFor(currentDim, key);
+      html += `<span class="chip ${active.has(key) ? 'active' : 'inactive'}" data-key="${key}" style="--chip-color:${c}"><span class="dot" style="background:${c}"></span>${key}</span>`;
     });
     el.innerHTML = html;
-    el.querySelectorAll(".chip[data-provider]").forEach(chip => {
+
+    el.querySelectorAll(".dim-switch button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        currentDim = btn.dataset.dim;
+        draw();
+        rerenderAll();
+      });
+    });
+    el.querySelectorAll(".chip[data-key]").forEach(chip => {
       chip.addEventListener("click", () => {
-        const p = chip.dataset.provider;
-        if (activeProviders.has(p)) activeProviders.delete(p); else activeProviders.add(p);
+        const key = chip.dataset.key;
+        if (active.has(key)) active.delete(key); else active.add(key);
         draw();
         rerenderAll();
       });
     });
     el.querySelector("#chip-all").addEventListener("click", () => {
-      if (activeProviders.size === providers.length) { activeProviders.clear(); }
-      else { providers.forEach(p => activeProviders.add(p)); }
+      if (active.size === categories.length) { active.clear(); }
+      else { categories.forEach(key => active.add(key)); }
       draw();
       rerenderAll();
     });
@@ -288,19 +349,43 @@ function rerenderAll() { renderers.forEach(fn => fn()); }
 })();
 
 // ---- stat tiles ----
+// sum(spotted)/sum(judged), pooled rather than a mean of per-model rates, so models with
+// more graded answers count proportionally more. Null if nothing was judged.
+function pooledRate(models) {
+  const judged = models.reduce((s, m) => s + m.judged, 0);
+  if (judged === 0) return null;
+  const spotted = models.reduce((s, m) => s + m.spotted, 0);
+  return spotted / judged;
+}
+
+// Buckets `models` by `keyOf(m)` and returns each bucket's pooled rate, best first.
+function groupRates(models, keyOf) {
+  const buckets = new Map();
+  models.forEach(m => {
+    const key = keyOf(m);
+    (buckets.get(key) || buckets.set(key, []).get(key)).push(m);
+  });
+  return [...buckets.entries()]
+    .map(([key, bucket]) => ({ key, rate: pooledRate(bucket) }))
+    .filter(g => g.rate !== null)
+    .sort((a, b) => b.rate - a.rate);
+}
+
+function groupTile(label, groups, bestWorstOnly) {
+  if (groups.length === 0) return { label, value: "-" };
+  const shown = bestWorstOnly && groups.length > 2 ? [groups[0], groups[groups.length - 1]] : groups;
+  return { label, value: shown.map(g => `${g.key} ${fmtPct(g.rate)}`).join(" · ") };
+}
+
 (function renderStats() {
   const el = document.getElementById("stat-row");
   function draw() {
     const vis = visibleModels();
-    const totalJudged = vis.reduce((s, m) => s + m.judged, 0);
-    const top = [...vis].sort((a, b) => b.performance - a.performance)[0];
-    const cheapestPerfect = [...vis].filter(m => m.performance >= 0.99).sort((a, b) => a.cost_per_pass_usd - b.cost_per_pass_usd)[0];
+    const overall = pooledRate(vis);
     const tiles = [
-      { label: "Models shown", value: vis.length },
-      { label: "Prompts", value: DATA.prompts.length },
-      { label: "Graded answers", value: totalJudged },
-      { label: "Top detector", value: top ? fmtPct(top.performance) : "-", sub: top ? shortName(top.model) : "" },
-      { label: "Cheapest at 100%", value: cheapestPerfect ? "$" + cheapestPerfect.cost_per_pass_usd.toFixed(3) : "none", sub: cheapestPerfect ? shortName(cheapestPerfect.model) : "no model hit 100%" },
+      { label: "Overall detection rate", value: overall === null ? "-" : fmtPct(overall) },
+      groupTile("Open vs. closed-source", groupRates(vis, m => m.license), false),
+      groupTile("By country", groupRates(vis, m => m.country), true),
     ];
     el.innerHTML = tiles.map(t => `
       <div class="stat-tile">
@@ -318,9 +403,10 @@ function rerenderAll() { renderers.forEach(fn => fn()); }
   const el = document.getElementById("bar-chart");
   function draw() {
     const rows = [...DATA.models].sort((a, b) => b.performance - a.performance);
+    const keyOf = DIMENSIONS[currentDim].keyOf, active = activeCategories[currentDim];
     el.innerHTML = rows.map(m => {
-      const c = colorFor(m.provider);
-      const hidden = activeProviders.has(m.provider) ? "" : "hidden";
+      const c = colorFor(currentDim, keyOf(m));
+      const hidden = active.has(keyOf(m)) ? "" : "hidden";
       return `
       <div class="bar-row ${hidden}">
         <div class="bar-label" title="${m.model}"><span class="dot" style="background:${c}"></span>${shortName(m.model)}</div>
@@ -356,7 +442,7 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
   function draw() {
     const pts = visibleModels();
     el.innerHTML = "";
-    if (pts.length === 0) { el.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No providers selected.</p>'; return; }
+    if (pts.length === 0) { el.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem;">No ${DIMENSIONS[currentDim].label.toLowerCase()} selected.</p>`; return; }
 
     const xsPos = pts.map(m => m[xKey]).filter(v => v > 0);
     const dataMin = Math.min(...xsPos);
@@ -438,7 +524,7 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
 
     items.forEach(it => {
       const { m, cx, cy } = it;
-      const c = colorFor(m.provider);
+      const c = colorFor(currentDim, DIMENSIONS[currentDim].keyOf(m));
       const onFrontier = frontierSet.has(m.model);
       const yLabel = it.yLabel;
       const dodged = Math.abs(yLabel - cy) > 2;

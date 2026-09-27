@@ -38,8 +38,9 @@ header.top { margin-bottom: 28px; border-bottom: 3px double var(--text-primary);
 h1 { font-family: var(--serif-display); font-weight: 900; font-size: 2.1rem; margin: 0 0 8px; letter-spacing: -0.01em; }
 .subtitle { font-family: var(--sans); color: var(--text-secondary); font-size: 0.9rem; margin: 0; max-width: 640px; line-height: 1.5; }
 
-.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin: 24px 0; }
+.stat-row { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0; }
 .stat-tile {
+  flex: 0 1 220px;
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-top: 2px solid var(--text-primary);
@@ -69,6 +70,14 @@ h1 { font-family: var(--serif-display); font-weight: 900; font-size: 2.1rem; mar
 .chip.active { color: var(--text-primary); border-color: var(--chip-color, var(--accent)); background: color-mix(in srgb, var(--chip-color, var(--accent)) 14%, var(--surface-1)); }
 .chip.inactive { opacity: 0.45; }
 .chip-all { font-weight: 700; }
+
+.dim-switch { display: flex; gap: 4px; margin-right: 10px; }
+.dim-switch button {
+  font-family: var(--sans); font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-1);
+  color: var(--text-secondary); cursor: pointer;
+}
+.dim-switch button.active { color: #fff; background: var(--accent); border-color: var(--accent); }
 
 .card {
   background: var(--surface-1);
@@ -167,37 +176,53 @@ a { color: var(--accent); }
 <div class="tooltip" id="tooltip"></div>
 
 <script>
-const DATA = {"prompts": ["attenuation_bias_v1", "conditional_expectation_v1", "fixed_effects_v1", "winners_curse_v1"], "models": [{"model": "openai/gpt-6-astra", "provider": "openai", "judged": 20, "spotted": 20, "performance": 1.0, "avg_output_tokens": 974.0, "avg_latency_seconds": 23.3, "cost_per_pass_usd": 0.20462}, {"model": "openai/gpt-6-sol", "provider": "openai", "judged": 20, "spotted": 20, "performance": 1.0, "avg_output_tokens": 660.0, "avg_latency_seconds": 11.7, "cost_per_pass_usd": 0.0286}, {"model": "anthropic/claude-opus-5.5", "provider": "anthropic", "judged": 20, "spotted": 19, "performance": 0.95, "avg_output_tokens": 2776.0, "avg_latency_seconds": 30.5, "cost_per_pass_usd": 0.22788}, {"model": "anthropic/claude-fable-5.1", "provider": "anthropic", "judged": 20, "spotted": 10, "performance": 0.5, "avg_output_tokens": 2783.0, "avg_latency_seconds": 40.3, "cost_per_pass_usd": 0.57119}, {"model": "openai/gpt-6-luna", "provider": "openai", "judged": 20, "spotted": 10, "performance": 0.5, "avg_output_tokens": 1721.0, "avg_latency_seconds": 16.5, "cost_per_pass_usd": 0.00354}, {"model": "alibaba/qwen3.8-max", "provider": "alibaba", "judged": 20, "spotted": 9, "performance": 0.45, "avg_output_tokens": 17439.0, "avg_latency_seconds": 133.3, "cost_per_pass_usd": 0.4194}, {"model": "moonshotai/kimi-k3", "provider": "moonshotai", "judged": 20, "spotted": 8, "performance": 0.4, "avg_output_tokens": 8664.0, "avg_latency_seconds": 65.8, "cost_per_pass_usd": 0.5214}, {"model": "spacexai/grok-4.7", "provider": "spacexai", "judged": 20, "spotted": 7, "performance": 0.35, "avg_output_tokens": 3303.0, "avg_latency_seconds": 38.2, "cost_per_pass_usd": 0.05001}, {"model": "zai/glm-5.3-flash", "provider": "zai", "judged": 20, "spotted": 4, "performance": 0.2, "avg_output_tokens": 2896.0, "avg_latency_seconds": 82.6, "cost_per_pass_usd": 0.00594}, {"model": "deepseek/deepseek-v4-pro", "provider": "deepseek", "judged": 20, "spotted": 3, "performance": 0.15, "avg_output_tokens": 7750.0, "avg_latency_seconds": 87.5, "cost_per_pass_usd": 0.0616}, {"model": "deepseek/deepseek-v4.1-flash", "provider": "deepseek", "judged": 20, "spotted": 3, "performance": 0.15, "avg_output_tokens": 8526.0, "avg_latency_seconds": 54.6, "cost_per_pass_usd": 0.03416}, {"model": "zai/glm-5.3", "provider": "zai", "judged": 20, "spotted": 3, "performance": 0.15, "avg_output_tokens": 1976.0, "avg_latency_seconds": 19.6, "cost_per_pass_usd": 0.03526}, {"model": "anthropic/claude-haiku-4.5", "provider": "anthropic", "judged": 20, "spotted": 0, "performance": 0.0, "avg_output_tokens": 638.0, "avg_latency_seconds": 8.3, "cost_per_pass_usd": 0.01379}, {"model": "anthropic/claude-sonnet-5", "provider": "anthropic", "judged": 20, "spotted": 0, "performance": 0.0, "avg_output_tokens": 2778.0, "avg_latency_seconds": 30.3, "cost_per_pass_usd": 0.11403}, {"model": "google/gemini-3.1-pro-preview", "provider": "google", "judged": 20, "spotted": 0, "performance": 0.0, "avg_output_tokens": 2407.0, "avg_latency_seconds": 20.7, "cost_per_pass_usd": 0.11742}, {"model": "google/gemini-3.5-flash-lite", "provider": "google", "judged": 20, "spotted": 0, "performance": 0.0, "avg_output_tokens": 749.0, "avg_latency_seconds": 4.3, "cost_per_pass_usd": 0.00778}, {"model": "google/gemini-3.8-flash", "provider": "google", "judged": 20, "spotted": 0, "performance": 0.0, "avg_output_tokens": 2153.0, "avg_latency_seconds": 17.1, "cost_per_pass_usd": 0.033}, {"model": "meta/llama-4-maverick", "provider": "meta", "judged": 20, "spotted": 0, "performance": 0.0, "avg_output_tokens": 511.0, "avg_latency_seconds": 7.9, "cost_per_pass_usd": 0.00183}, {"model": "mistral/mistral-large-3", "provider": "mistral", "judged": 20, "spotted": 0, "performance": 0.0, "avg_output_tokens": 1151.0, "avg_latency_seconds": 15.5, "cost_per_pass_usd": 0.00737}, {"model": "spacexai/grok-4.1-fast-reasoning", "provider": "spacexai", "judged": 20, "spotted": 0, "performance": 0.0, "avg_output_tokens": 1769.0, "avg_latency_seconds": 9.7, "cost_per_pass_usd": 0.00377}]};
+const DATA = {"prompts": ["attenuation_bias_l1", "attenuation_bias_l2", "attenuation_bias_v1", "conditional_expectation_l1", "conditional_expectation_l4", "conditional_expectation_orig", "conditional_expectation_v1", "cross_sectional_dependence_l4", "cross_sectional_dependence_v1", "cross_sectional_dependence_v2", "cross_sectional_dependence_v3", "cross_sectional_dependence_v4", "cross_sectional_exchangeability_va", "cross_sectional_exchangeability_vb", "fixed_effects_l3", "fixed_effects_l4", "fixed_effects_l5", "fixed_effects_v1", "type_i_error_l1", "winners_curse_l1", "winners_curse_l2", "winners_curse_v1"], "models": [{"model": "openai/gpt-6-sol", "provider": "openai", "license": "closed", "country": "USA", "judged": 29, "spotted": 29, "performance": 1.0, "avg_output_tokens": 731.0, "avg_latency_seconds": 13.3, "cost_per_pass_usd": 0.0532}, {"model": "openai/gpt-6-astra", "provider": "openai", "license": "closed", "country": "USA", "judged": 59, "spotted": 58, "performance": 0.983, "avg_output_tokens": 876.0, "avg_latency_seconds": 22.8, "cost_per_pass_usd": 0.90578}, {"model": "anthropic/claude-opus-5.5", "provider": "anthropic", "license": "closed", "country": "USA", "judged": 38, "spotted": 36, "performance": 0.947, "avg_output_tokens": 3028.0, "avg_latency_seconds": 33.0, "cost_per_pass_usd": 0.95442}, {"model": "openai/gpt-5.6-sol", "provider": "openai", "license": "closed", "country": "USA", "judged": 40, "spotted": 31, "performance": 0.775, "avg_output_tokens": 1357.0, "avg_latency_seconds": 25.5, "cost_per_pass_usd": 0.46532}, {"model": "openai/gpt-6-luna", "provider": "openai", "license": "closed", "country": "USA", "judged": 29, "spotted": 19, "performance": 0.655, "avg_output_tokens": 2080.0, "avg_latency_seconds": 19.8, "cost_per_pass_usd": 0.0073}, {"model": "anthropic/claude-fable-5.1", "provider": "anthropic", "license": "closed", "country": "USA", "judged": 60, "spotted": 39, "performance": 0.65, "avg_output_tokens": 2698.0, "avg_latency_seconds": 39.5, "cost_per_pass_usd": 2.71418}, {"model": "openai/gpt-5.6-luna", "provider": "openai", "license": "closed", "country": "USA", "judged": 40, "spotted": 26, "performance": 0.65, "avg_output_tokens": 1456.0, "avg_latency_seconds": 15.9, "cost_per_pass_usd": 0.02746}, {"model": "openai/gpt-5.6-terra", "provider": "openai", "license": "closed", "country": "USA", "judged": 40, "spotted": 26, "performance": 0.65, "avg_output_tokens": 1378.0, "avg_latency_seconds": 19.9, "cost_per_pass_usd": 0.27081}, {"model": "spacexai/grok-4.7", "provider": "spacexai", "license": "closed", "country": "USA", "judged": 29, "spotted": 15, "performance": 0.517, "avg_output_tokens": 3753.0, "avg_latency_seconds": 49.6, "cost_per_pass_usd": 0.09592}, {"model": "alibaba/qwen3.8-max", "provider": "alibaba", "license": "closed", "country": "China", "judged": 21, "spotted": 10, "performance": 0.476, "avg_output_tokens": 16852.0, "avg_latency_seconds": 130.2, "cost_per_pass_usd": 0.68396}, {"model": "moonshotai/kimi-k3", "provider": "moonshotai", "license": "open", "country": "China", "judged": 22, "spotted": 10, "performance": 0.455, "avg_output_tokens": 10495.0, "avg_latency_seconds": 81.6, "cost_per_pass_usd": 1.05111}, {"model": "anthropic/claude-opus-5", "provider": "anthropic", "license": "closed", "country": "USA", "judged": 20, "spotted": 9, "performance": 0.45, "avg_output_tokens": 2642.0, "avg_latency_seconds": 35.8, "cost_per_pass_usd": null}, {"model": "zai/glm-5.3-flash", "provider": "zai", "license": "open", "country": "China", "judged": 40, "spotted": 15, "performance": 0.375, "avg_output_tokens": 2630.0, "avg_latency_seconds": 52.5, "cost_per_pass_usd": 0.0209}, {"model": "zai/glm-5.3", "provider": "zai", "license": "open", "country": "China", "judged": 39, "spotted": 14, "performance": 0.359, "avg_output_tokens": 2223.0, "avg_latency_seconds": 26.6, "cost_per_pass_usd": 0.17227}, {"model": "deepseek/deepseek-v4.1-flash", "provider": "deepseek", "license": "open", "country": "China", "judged": 38, "spotted": 13, "performance": 0.342, "avg_output_tokens": 9102.0, "avg_latency_seconds": 67.5, "cost_per_pass_usd": 0.15106}, {"model": "deepseek/deepseek-v4-pro", "provider": "deepseek", "license": "open", "country": "China", "judged": 36, "spotted": 11, "performance": 0.306, "avg_output_tokens": 7678.0, "avg_latency_seconds": 84.6, "cost_per_pass_usd": 0.19027}, {"model": "google/gemini-3.1-pro-preview", "provider": "google", "license": "closed", "country": "USA", "judged": 60, "spotted": 14, "performance": 0.233, "avg_output_tokens": 2348.0, "avg_latency_seconds": 20.9, "cost_per_pass_usd": 0.56516}, {"model": "google/gemini-3.8-flash", "provider": "google", "license": "closed", "country": "USA", "judged": 60, "spotted": 14, "performance": 0.233, "avg_output_tokens": 2164.0, "avg_latency_seconds": 19.2, "cost_per_pass_usd": 0.16768}, {"model": "spacexai/grok-4.6", "provider": "spacexai", "license": "closed", "country": "USA", "judged": 20, "spotted": 4, "performance": 0.2, "avg_output_tokens": 2682.0, "avg_latency_seconds": 47.7, "cost_per_pass_usd": 0.21172}, {"model": "spacexai/grok-4.1-fast-reasoning", "provider": "spacexai", "license": "closed", "country": "USA", "judged": 40, "spotted": 6, "performance": 0.15, "avg_output_tokens": 1886.0, "avg_latency_seconds": 11.8, "cost_per_pass_usd": 0.01724}, {"model": "anthropic/claude-sonnet-5", "provider": "anthropic", "license": "closed", "country": "USA", "judged": 59, "spotted": 7, "performance": 0.119, "avg_output_tokens": 3100.0, "avg_latency_seconds": 35.3, "cost_per_pass_usd": 0.57203}, {"model": "google/gemini-3.5-flash-lite", "provider": "google", "license": "closed", "country": "USA", "judged": 60, "spotted": 7, "performance": 0.117, "avg_output_tokens": 755.0, "avg_latency_seconds": 4.3, "cost_per_pass_usd": 0.04245}, {"model": "anthropic/claude-haiku-4.5", "provider": "anthropic", "license": "closed", "country": "USA", "judged": 60, "spotted": 6, "performance": 0.1, "avg_output_tokens": 588.0, "avg_latency_seconds": 7.8, "cost_per_pass_usd": 0.06302}, {"model": "meta/llama-4-maverick", "provider": "meta", "license": "open", "country": "USA", "judged": 29, "spotted": 0, "performance": 0.0, "avg_output_tokens": 555.0, "avg_latency_seconds": 7.8, "cost_per_pass_usd": 0.00342}, {"model": "mistral/mistral-large-3", "provider": "mistral", "license": "closed", "country": "France", "judged": 29, "spotted": 0, "performance": 0.0, "avg_output_tokens": 1253.0, "avg_latency_seconds": 16.7, "cost_per_pass_usd": 0.01337}]};
 
-// Fixed provider -> color mapping so colors stay stable across rebuilds.
-// A restrained newsprint-infographic palette: ink-compatible, desaturated hues.
-const PROVIDER_COLORS = {
-  openai:      "#a3161a",
-  anthropic:   "#1c5cab",
-  google:      "#3d6b35",
-  spacexai:    "#a66a1e",
-  deepseek:    "#6b3fa0",
-  zai:         "#2f6f6b",
-  alibaba:     "#7a4a2b",
-  moonshotai:  "#ab4967",
-  mistral:     "#5c6b8a",
-  meta:        "#6e6e5a",
-};
+// A restrained newsprint-infographic palette: ink-compatible, desaturated hues. Each
+// dimension you can color/group by keeps its own fixed map plus a fallback palette for any
+// category it doesn't have a color for yet.
 const FALLBACK_COLORS = ["#a3161a", "#1c5cab", "#3d6b35", "#a66a1e", "#6b3fa0"];
-let fallbackIdx = 0;
-function colorFor(provider) {
-  if (!PROVIDER_COLORS[provider]) {
-    PROVIDER_COLORS[provider] = FALLBACK_COLORS[fallbackIdx++ % FALLBACK_COLORS.length];
-  }
-  return PROVIDER_COLORS[provider];
-}
+const DIMENSIONS = {
+  provider: {
+    label: "Provider",
+    keyOf: m => m.provider,
+    colors: {
+      openai: "#a3161a", anthropic: "#1c5cab", google: "#3d6b35", spacexai: "#a66a1e",
+      deepseek: "#6b3fa0", zai: "#2f6f6b", alibaba: "#7a4a2b", moonshotai: "#ab4967",
+      mistral: "#5c6b8a", meta: "#6e6e5a",
+    },
+  },
+  license: {
+    label: "License",
+    keyOf: m => m.license,
+    colors: { open: "#2f6f6b", closed: "#a3161a" },
+  },
+  country: {
+    label: "Country",
+    keyOf: m => m.country,
+    colors: { USA: "#1c5cab", China: "#a3161a", France: "#a66a1e" },
+  },
+};
+let currentDim = "provider";
 
-const providers = [...new Set(DATA.models.map(m => m.provider))].sort();
-const activeProviders = new Set(providers);
+function categoriesFor(dim) { return [...new Set(DATA.models.map(DIMENSIONS[dim].keyOf))].sort(); }
+
+const activeCategories = {};
+for (const dim in DIMENSIONS) activeCategories[dim] = new Set(categoriesFor(dim));
+
+let fallbackIdx = 0;
+function colorFor(dim, key) {
+  const colors = DIMENSIONS[dim].colors;
+  if (!colors[key]) colors[key] = FALLBACK_COLORS[fallbackIdx++ % FALLBACK_COLORS.length];
+  return colors[key];
+}
 
 function shortName(m) { return m.split("/")[1] || m; }
 function fmtPct(x) { return (x * 100).toFixed(0) + "%"; }
-function visibleModels() { return DATA.models.filter(m => activeProviders.has(m.provider)); }
+function visibleModels() {
+  const active = activeCategories[currentDim], keyOf = DIMENSIONS[currentDim].keyOf;
+  return DATA.models.filter(m => active.has(keyOf(m)));
+}
 
 const tooltip = document.getElementById("tooltip");
 function showTip(evt, html) {
@@ -211,30 +236,45 @@ function hideTip() { tooltip.style.opacity = 0; }
 const renderers = [];
 function rerenderAll() { renderers.forEach(fn => fn()); }
 
-// ---- provider legend ----
+// ---- dimension switch + legend ----
 (function renderLegend() {
   const el = document.getElementById("provider-legend");
   function draw() {
-    const allOn = activeProviders.size === providers.length;
-    let html = '<span class="legend-title">Providers</span>';
+    const categories = categoriesFor(currentDim);
+    const active = activeCategories[currentDim];
+    const allOn = active.size === categories.length;
+
+    let html = '<span class="dim-switch">';
+    for (const dim in DIMENSIONS) {
+      html += `<button data-dim="${dim}" class="${dim === currentDim ? 'active' : ''}">${DIMENSIONS[dim].label}</button>`;
+    }
+    html += '</span>';
+    html += `<span class="legend-title">${DIMENSIONS[currentDim].label}</span>`;
     html += `<span class="chip chip-all" id="chip-all">${allOn ? "Clear all" : "Select all"}</span>`;
-    providers.forEach(p => {
-      const c = colorFor(p);
-      const active = activeProviders.has(p);
-      html += `<span class="chip ${active ? 'active' : 'inactive'}" data-provider="${p}" style="--chip-color:${c}"><span class="dot" style="background:${c}"></span>${p}</span>`;
+    categories.forEach(key => {
+      const c = colorFor(currentDim, key);
+      html += `<span class="chip ${active.has(key) ? 'active' : 'inactive'}" data-key="${key}" style="--chip-color:${c}"><span class="dot" style="background:${c}"></span>${key}</span>`;
     });
     el.innerHTML = html;
-    el.querySelectorAll(".chip[data-provider]").forEach(chip => {
+
+    el.querySelectorAll(".dim-switch button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        currentDim = btn.dataset.dim;
+        draw();
+        rerenderAll();
+      });
+    });
+    el.querySelectorAll(".chip[data-key]").forEach(chip => {
       chip.addEventListener("click", () => {
-        const p = chip.dataset.provider;
-        if (activeProviders.has(p)) activeProviders.delete(p); else activeProviders.add(p);
+        const key = chip.dataset.key;
+        if (active.has(key)) active.delete(key); else active.add(key);
         draw();
         rerenderAll();
       });
     });
     el.querySelector("#chip-all").addEventListener("click", () => {
-      if (activeProviders.size === providers.length) { activeProviders.clear(); }
-      else { providers.forEach(p => activeProviders.add(p)); }
+      if (active.size === categories.length) { active.clear(); }
+      else { categories.forEach(key => active.add(key)); }
       draw();
       rerenderAll();
     });
@@ -243,19 +283,43 @@ function rerenderAll() { renderers.forEach(fn => fn()); }
 })();
 
 // ---- stat tiles ----
+// sum(spotted)/sum(judged), pooled rather than a mean of per-model rates, so models with
+// more graded answers count proportionally more. Null if nothing was judged.
+function pooledRate(models) {
+  const judged = models.reduce((s, m) => s + m.judged, 0);
+  if (judged === 0) return null;
+  const spotted = models.reduce((s, m) => s + m.spotted, 0);
+  return spotted / judged;
+}
+
+// Buckets `models` by `keyOf(m)` and returns each bucket's pooled rate, best first.
+function groupRates(models, keyOf) {
+  const buckets = new Map();
+  models.forEach(m => {
+    const key = keyOf(m);
+    (buckets.get(key) || buckets.set(key, []).get(key)).push(m);
+  });
+  return [...buckets.entries()]
+    .map(([key, bucket]) => ({ key, rate: pooledRate(bucket) }))
+    .filter(g => g.rate !== null)
+    .sort((a, b) => b.rate - a.rate);
+}
+
+function groupTile(label, groups, bestWorstOnly) {
+  if (groups.length === 0) return { label, value: "-" };
+  const shown = bestWorstOnly && groups.length > 2 ? [groups[0], groups[groups.length - 1]] : groups;
+  return { label, value: shown.map(g => `${g.key} ${fmtPct(g.rate)}`).join(" · ") };
+}
+
 (function renderStats() {
   const el = document.getElementById("stat-row");
   function draw() {
     const vis = visibleModels();
-    const totalJudged = vis.reduce((s, m) => s + m.judged, 0);
-    const top = [...vis].sort((a, b) => b.performance - a.performance)[0];
-    const cheapestPerfect = [...vis].filter(m => m.performance >= 0.99).sort((a, b) => a.cost_per_pass_usd - b.cost_per_pass_usd)[0];
+    const overall = pooledRate(vis);
     const tiles = [
-      { label: "Models shown", value: vis.length },
-      { label: "Prompts", value: DATA.prompts.length },
-      { label: "Graded answers", value: totalJudged },
-      { label: "Top detector", value: top ? fmtPct(top.performance) : "-", sub: top ? shortName(top.model) : "" },
-      { label: "Cheapest at 100%", value: cheapestPerfect ? "$" + cheapestPerfect.cost_per_pass_usd.toFixed(3) : "none", sub: cheapestPerfect ? shortName(cheapestPerfect.model) : "no model hit 100%" },
+      { label: "Overall detection rate", value: overall === null ? "-" : fmtPct(overall) },
+      groupTile("Open vs. closed-source", groupRates(vis, m => m.license), false),
+      groupTile("By country", groupRates(vis, m => m.country), true),
     ];
     el.innerHTML = tiles.map(t => `
       <div class="stat-tile">
@@ -273,9 +337,10 @@ function rerenderAll() { renderers.forEach(fn => fn()); }
   const el = document.getElementById("bar-chart");
   function draw() {
     const rows = [...DATA.models].sort((a, b) => b.performance - a.performance);
+    const keyOf = DIMENSIONS[currentDim].keyOf, active = activeCategories[currentDim];
     el.innerHTML = rows.map(m => {
-      const c = colorFor(m.provider);
-      const hidden = activeProviders.has(m.provider) ? "" : "hidden";
+      const c = colorFor(currentDim, keyOf(m));
+      const hidden = active.has(keyOf(m)) ? "" : "hidden";
       return `
       <div class="bar-row ${hidden}">
         <div class="bar-label" title="${m.model}"><span class="dot" style="background:${c}"></span>${shortName(m.model)}</div>
@@ -311,7 +376,7 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
   function draw() {
     const pts = visibleModels();
     el.innerHTML = "";
-    if (pts.length === 0) { el.innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">No providers selected.</p>'; return; }
+    if (pts.length === 0) { el.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem;">No ${DIMENSIONS[currentDim].label.toLowerCase()} selected.</p>`; return; }
 
     const xsPos = pts.map(m => m[xKey]).filter(v => v > 0);
     const dataMin = Math.min(...xsPos);
@@ -393,7 +458,7 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
 
     items.forEach(it => {
       const { m, cx, cy } = it;
-      const c = colorFor(m.provider);
+      const c = colorFor(currentDim, DIMENSIONS[currentDim].keyOf(m));
       const onFrontier = frontierSet.has(m.model);
       const yLabel = it.yLabel;
       const dodged = Math.abs(yLabel - cy) > 2;
