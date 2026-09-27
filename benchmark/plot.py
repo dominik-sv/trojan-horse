@@ -5,9 +5,10 @@ a provider are shades of it: the darkest shade is the provider's best model in
 that chart, the lightest its weakest. Every chart here uses that same coloring.
 """
 
+import math
+import textwrap
 from pathlib import Path
 from typing import Callable
-import textwrap
 
 import matplotlib
 
@@ -141,6 +142,13 @@ def plot_scatter(
         x, y = points[model]
         ax.scatter([x], [y], s=110, color=color_of[model], edgecolor=SURFACE, linewidth=1.5, zorder=3)
 
+    # Models with 0% performance all sit on the same horizontal line, where full name
+    # labels for more than a couple of them would overlap into mush. They get a small
+    # numbered tag instead, resolved against a footnote list below the chart.
+    zero = sorted((model for model in present if performance[model] == 0), key=lambda model: points[model][0])
+    nonzero = [model for model in present if model not in zero]
+    tag_of = {model: _zero_tag(index) for index, model in enumerate(zero)}
+
     if log_x:
         ax.set_xscale("log")
         ax.xaxis.set_major_locator(LogLocator(base=10, subs=(1.0, 2.0, 5.0)))
@@ -157,9 +165,23 @@ def plot_scatter(
     ax.set_title(title + title_suffix, color=INK, loc="left", fontsize=13, pad=14)
 
     fig.tight_layout()
-    _label_points(fig, ax, [(model.split("/", 1)[-1], *points[model], color_of[model]) for model in present])
+    # A few nonzero dots can still sit close enough that neither can get an individual
+    # label spot; those get pulled into a stacked, leader-lined list instead.
+    clusters = _cluster_points(ax, nonzero, points)
+    singles, cluster_taken = _label_clusters(fig, ax, clusters, points, color_of)
+    _label_points(
+        fig, ax, [(model.split("/", 1)[-1], *points[model], color_of[model]) for model in singles],
+        markers=[points[model] for model in nonzero], taken=cluster_taken,
+    )
+    _label_points(fig, ax, [(tag_of[model], *points[model], color_of[model]) for model in zero])
     _draw_legend(ax, layout, anchor_y=-0.17)
     fig.text(0.5, -0.03, footnote, ha="center", va="top", fontsize=8.5, color=INK_SECONDARY)
+    if zero:
+        zero_list = "  ".join(f"{tag_of[model]} {model.split('/', 1)[-1]}" for model in zero)
+        fig.text(
+            0.5, -0.065, textwrap.fill(f"Scored 0%: {zero_list}", 110),
+            ha="center", va="top", fontsize=8.5, color=INK_SECONDARY,
+        )
     _save(fig, path, tighten=False)
 
 
@@ -207,25 +229,38 @@ def _draw_legend(ax, layout: Layout, anchor_y: float) -> None:
             text.set_fontweight("bold")
 
 
-def _label_points(fig, ax, labeled: list[tuple[str, float, float, str]]) -> None:
-    """Write each point's model name next to it, trying spots around the point until one is clear."""
+def _overlaps(a, b) -> bool:
+    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+
+
+def _label_points(
+    fig, ax, labeled: list[tuple[str, float, float, str]],
+    markers: list[tuple[float, float]] | None = None,
+    taken: list[tuple[float, float, float, float]] | None = None,
+) -> None:
+    """Write each point's model name next to it, trying spots around the point until one is clear.
+
+    `markers` are the data-coordinate dots to avoid (defaults to the labeled points
+    themselves); pass the full set when `labeled` is only some of the dots on the chart.
+    `taken` seeds already-placed label boxes to steer clear of, e.g. from `_label_clusters`.
+    """
     fig.canvas.draw()
     renderer = fig.canvas.get_renderer()
     axes_box = ax.get_window_extent(renderer)
+    if markers is None:
+        markers = [(x, y) for _, x, y, _ in labeled]
     marker_boxes = []
-    for _, x, y, _ in labeled:
+    for x, y in markers:
         px, py = ax.transData.transform((x, y))
         marker_boxes.append((px - 9, py - 9, px + 9, py + 9))
-
-    def overlaps(a, b) -> bool:
-        return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
 
     spots = [  # (dx, dy in points, horizontal alignment, vertical alignment)
         (9, 0, "left", "center"), (-9, 0, "right", "center"), (0, 10, "center", "bottom"), (0, -10, "center", "top"),
         (9, 9, "left", "bottom"), (9, -9, "left", "top"), (-9, 9, "right", "bottom"), (-9, -9, "right", "top"),
     ]
-    taken: list[tuple[float, float, float, float]] = []
-    for index, (name, x, y, _) in sorted(enumerate(labeled), key=lambda item: (item[1][1], item[1][2])):
+    taken = list(taken) if taken else []
+    for name, x, y, _ in sorted(labeled, key=lambda item: (item[1], item[2])):
+        own_px, own_py = ax.transData.transform((x, y))
         best = None
         for dx, dy, ha, va in spots:
             text = ax.annotate(
@@ -235,8 +270,10 @@ def _label_points(fig, ax, labeled: list[tuple[str, float, float, str]]) -> None
             rect = (box.x0, box.y0, box.x1, box.y1)
             clear = (
                 axes_box.x0 <= rect[0] and rect[2] <= axes_box.x1 and axes_box.y0 <= rect[1] and rect[3] <= axes_box.y1
-                and not any(overlaps(rect, other) for other in taken)
-                and not any(overlaps(rect, m) for i, m in enumerate(marker_boxes) if i != index)
+                and not any(_overlaps(rect, other) for other in taken)
+                and not any(
+                    _overlaps(rect, m) for m in marker_boxes if not (m[0] < own_px < m[2] and m[1] < own_py < m[3])
+                )
             )
             if clear:
                 best = rect
@@ -248,6 +285,103 @@ def _label_points(fig, ax, labeled: list[tuple[str, float, float, str]]) -> None
             box = text.get_window_extent(renderer)
             best = (box.x0, box.y0, box.x1, box.y1)
         taken.append(best)
+
+
+CLUSTER_RADIUS = 26  # px: dots closer than this can't both get an individual label spot
+
+
+def _cluster_points(ax, models: list[str], points: dict[str, tuple[float, float]]) -> list[list[str]]:
+    """Group `models` whose dots sit within `CLUSTER_RADIUS` pixels of each other, transitively."""
+    positions = {model: ax.transData.transform(points[model]) for model in models}
+    remaining = list(models)
+    clusters: list[list[str]] = []
+    while remaining:
+        cluster = [remaining.pop()]
+        grown = True
+        while grown:
+            grown = False
+            for model in remaining[:]:
+                if any(math.hypot(*(positions[model] - positions[member])) < CLUSTER_RADIUS for member in cluster):
+                    cluster.append(model)
+                    remaining.remove(model)
+                    grown = True
+        clusters.append(cluster)
+    return clusters
+
+
+def _label_clusters(
+    fig, ax, clusters: list[list[str]], points: dict[str, tuple[float, float]], color_of: dict[str, str]
+) -> tuple[list[str], list[tuple[float, float, float, float]]]:
+    """Place a stacked, leader-lined label next to each cluster of 2+ dots too close to label individually.
+
+    Returns the models left over (clusters of size 1, unaffected) to be labeled the normal
+    way, plus the label boxes already placed here, so `_label_points` can steer clear of them.
+    """
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    axes_box = ax.get_window_extent(renderer)
+    all_marker_boxes = {}
+    for group in clusters:
+        for model in group:
+            px, py = ax.transData.transform(points[model])
+            all_marker_boxes[model] = (px - 9, py - 9, px + 9, py + 9)
+
+    singles: list[str] = []
+    taken: list[tuple[float, float, float, float]] = []
+    for cluster in clusters:
+        if len(cluster) == 1:
+            singles.append(cluster[0])
+            continue
+        ordered = sorted(cluster, key=lambda model: -ax.transData.transform(points[model])[1])  # top to bottom
+        names = [model.split("/", 1)[-1] for model in ordered]
+        other_marker_boxes = [box for model, box in all_marker_boxes.items() if model not in cluster]
+        xs_px, ys_px = zip(*(ax.transData.transform(points[model]) for model in ordered))
+        anchor = ax.transData.inverted().transform((sum(xs_px) / len(xs_px), sum(ys_px) / len(ys_px)))
+
+        best = None
+        for dx, ha in [(14, "left"), (-14, "right"), (26, "left"), (-26, "right")]:
+            text = ax.annotate(
+                "\n".join(names), anchor, xytext=(dx, 0), textcoords="offset points",
+                ha=ha, va="center", fontsize=8.5, color=INK, zorder=4, linespacing=1.7,
+            )
+            box = text.get_window_extent(renderer)
+            rect = (box.x0, box.y0, box.x1, box.y1)
+            clear = (
+                axes_box.x0 <= rect[0] and rect[2] <= axes_box.x1 and axes_box.y0 <= rect[1] and rect[3] <= axes_box.y1
+                and not any(_overlaps(rect, other) for other in taken)
+                and not any(_overlaps(rect, m) for m in other_marker_boxes)
+            )
+            if clear:
+                best = (rect, ha)
+                break
+            text.remove()
+        if best is None:  # crowded: fall back to the first spot even if it touches something
+            dx, ha = 14, "left"
+            text = ax.annotate(
+                "\n".join(names), anchor, xytext=(dx, 0), textcoords="offset points",
+                ha=ha, va="center", fontsize=8.5, color=INK, zorder=4, linespacing=1.7,
+            )
+            box = text.get_window_extent(renderer)
+            best = ((box.x0, box.y0, box.x1, box.y1), ha)
+
+        rect, ha = best
+        taken.append(rect)
+        line_height = (rect[3] - rect[1]) / len(names)
+        edge_x = rect[0] if ha == "left" else rect[2]
+        for index, model in enumerate(ordered):
+            line_y = rect[3] - (index + 0.5) * line_height
+            edge_data = ax.transData.inverted().transform((edge_x, line_y))
+            ax.plot(
+                [points[model][0], edge_data[0]], [points[model][1], edge_data[1]],
+                color=INK_SECONDARY, linewidth=0.8, zorder=2, solid_capstyle="round",
+            )
+    return singles, taken
+
+
+def _zero_tag(index: int) -> str:
+    """A short tag for the index-th (0-based) 0%-performance model: circled digits, then plain numbers."""
+    circled = "①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳"
+    return circled[index] if index < len(circled) else f"({index + 1})"
 
 
 def _save(fig, path: Path, tighten: bool = True) -> None:
