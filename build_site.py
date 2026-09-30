@@ -458,7 +458,18 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
     el.innerHTML = "";
     if (pts.length === 0) { el.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem;">No ${DIMENSIONS[currentDim].label.toLowerCase()} selected.</p>`; return; }
 
-    const xsPos = pts.map(m => m[xKey]).filter(v => v > 0);
+    // A log-scale axis has no position for 0 (or missing data): plotting it would
+    // clamp to the left edge, indistinguishable from the smallest real value. Those
+    // models are left off the plot and named below it instead, like the static
+    // report does for 0%-performance dots.
+    const plottable = pts.filter(m => m[xKey] > 0);
+    const zero = pts.filter(m => !(m[xKey] > 0));
+    if (plottable.length === 0) {
+      el.innerHTML = `<p style="color:var(--text-muted); font-size:0.85rem;">No selected model has ${xLabel.replace(/\s*\(.*\)/, "")} data.</p>`;
+      return;
+    }
+
+    const xsPos = plottable.map(m => m[xKey]);
     const dataMin = Math.min(...xsPos);
     const dataMax = Math.max(...xsPos);
     const xMin = dataMin / 1.3;
@@ -500,7 +511,7 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
     inner += `<text class="axis-title" x="${(W)/2}" y="${H-4}" text-anchor="middle">${xLabel}</text>`;
     inner += `<text class="axis-title" x="${-H/2}" y="16" text-anchor="middle" transform="rotate(-90)">detection rate</text>`;
 
-    const frontier = computeFrontier(pts, xKey);
+    const frontier = computeFrontier(plottable, xKey);
     if (frontier.length > 1) {
       const path = frontier.map((p, i) => `${i === 0 ? "M" : "L"}${sx(p[xKey])},${sy(p.performance)}`).join(" ");
       inner += `<path class="frontier-line" d="${path}"/>`;
@@ -513,7 +524,7 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
     // Layout: points close together on X get their labels dodged apart
     // vertically (stacked with a minimum gap), each with a leader line back
     // to its dot, so a cluster of near-identical values stays readable.
-    const items = pts.map(m => ({
+    const items = plottable.map(m => ({
       m, cx: sx(m[xKey]), cy: sy(m.performance),
       label: shortName(m.model),
     })).sort((a, b) => a.cx - b.cx || a.cy - b.cy);
@@ -588,6 +599,13 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
     });
 
     el.appendChild(svg);
+
+    if (zero.length) {
+      const note = document.createElement("p");
+      note.style.cssText = "color:var(--text-muted); font-size:0.78rem; margin-top:8px;";
+      note.textContent = `No ${xLabel.replace(/\s*\(.*\)/, "")} data: ${zero.map(m => shortName(m.model)).join(", ")}`;
+      el.appendChild(note);
+    }
   }
   renderers.push(draw);
   draw();

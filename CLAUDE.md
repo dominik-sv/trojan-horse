@@ -11,6 +11,7 @@ A benchmark that sends prompts containing a planted false premise to many LLMs (
 - `python run.py` runs the benchmark, but auto-skips any model in `models` that already has enough saved runs for every current prompt, so adding one new model to `benchmark.toml` and running only pays for that model (`--all` forces the whole roster, `--models ID ...` forces specific ones; `--no-judge` skips grading; `--list-models [filter]` lists gateway models)
 - `python visualize.py` rebuilds `report/` from all saved runs (free, no API calls)
 - `python check_judge.py` scores the judge pool against `tests/judge_gold.json` (a few cents)
+- `python build_site.py` rebuilds `docs/index.html`, the live GitHub Pages dashboard (reads saved runs directly, like `visualize.py`; edit this script, not `docs/index.html`, since it's generated)
 - Needs `VERCEL_API_KEY` as an environment variable. Editors only see it after a full restart.
 
 ## Where things live
