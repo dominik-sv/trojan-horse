@@ -521,30 +521,43 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
 
     const frontierSet = new Set(frontier.map(p => p.model));
 
-    // Layout: points close together on X get their labels dodged apart
-    // vertically (stacked with a minimum gap), each with a leader line back
-    // to its dot, so a cluster of near-identical values stays readable.
+    // Layout: a label defaults to sitting right next to its dot, but a wide
+    // label (a long model name) can reach past a neighboring dot even when
+    // that dot isn't especially close in X. So each label's box (estimated
+    // from its character count; SVG has no cheap text-measuring without an
+    // extra render pass) is checked against every dot and every label placed
+    // so far, at increasing vertical offsets, until one is clear; a leader
+    // line is only drawn once a label has actually been pushed off its dot.
+    const LABEL_H = 12, CHAR_W = 5.7, DOT_R = 8;
+    function overlapBoxes(a, b) { return a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]; }
+    function labelBox(cx, y, label, side) {
+      const w = label.length * CHAR_W + 6;
+      const x0 = side === "left" ? cx - 9 - w : cx + 9;
+      return [x0, y - LABEL_H / 2, x0 + w, y + LABEL_H / 2];
+    }
+
     const items = plottable.map(m => ({
       m, cx: sx(m[xKey]), cy: sy(m.performance),
       label: shortName(m.model),
+      side: sx(m[xKey]) > W - PAD_R - 90 ? "left" : "right",
     })).sort((a, b) => a.cx - b.cx || a.cy - b.cy);
 
-    const minGap = 13, xWindow = 68;
-    const placed = [];
-    items.forEach(it => {
-      let y = it.cy;
-      let conflict = true;
-      while (conflict) {
-        conflict = false;
-        for (const p of placed) {
-          if (Math.abs(p.cx - it.cx) < xWindow && Math.abs(p.yLabel - y) < minGap) {
-            y = p.yLabel + minGap;
-            conflict = true;
-          }
+    const dotBoxes = items.map(it => [it.cx - DOT_R, it.cy - DOT_R, it.cx + DOT_R, it.cy + DOT_R]);
+    const placedBoxes = [];
+    items.forEach((it, index) => {
+      const otherDots = dotBoxes.filter((_, j) => j !== index);
+      let chosen = null;
+      for (let step = 0; step < 16 && !chosen; step++) {
+        const dy = step === 0 ? 0 : (step % 2 ? 1 : -1) * Math.ceil(step / 2) * (LABEL_H + 2);
+        const y = Math.max(PAD_T + LABEL_H / 2, Math.min(H - PAD_B - LABEL_H / 2, it.cy + dy));
+        const box = labelBox(it.cx, y, it.label, it.side);
+        if (!placedBoxes.some(p => overlapBoxes(box, p)) && !otherDots.some(d => overlapBoxes(box, d))) {
+          chosen = { box, y };
         }
       }
-      it.yLabel = Math.min(y, H - PAD_B - 4);
-      placed.push({ cx: it.cx, yLabel: it.yLabel });
+      if (!chosen) chosen = { box: labelBox(it.cx, it.cy, it.label, it.side), y: it.cy };  // crowded: accept the overlap
+      it.yLabel = chosen.y;
+      placedBoxes.push(chosen.box);
     });
 
     items.forEach(it => {
@@ -565,7 +578,7 @@ function scatterChart(containerId, xKey, xLabel, xFmt) {
       dot.classList.add("dot-pt");
       if (onFrontier) { dot.style.filter = `drop-shadow(0 0 4px ${c})`; }
 
-      const nearRight = cx > W - PAD_R - 90;
+      const nearRight = it.side === "left";
       const labelX = nearRight ? cx - 9 : cx + 9;
 
       let leader = null;
