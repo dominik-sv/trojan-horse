@@ -13,7 +13,7 @@ from tqdm import tqdm
 
 from .client import BenchmarkClient
 from .config import MAX_CALLS_PER_MODEL, MAX_OUTPUT_TOKENS, MAX_PARALLEL_CALLS
-from .judge import JudgeVote, apply_votes, judge_vote, load_criteria, pick_judges
+from .judge import JudgeVote, apply_votes, judge_vote, load_criteria, pick_extra_judge, pick_judges
 from .models import ModelResult, PromptItem
 from .report import build_meta, detection_counts, write_meta, write_report
 
@@ -284,8 +284,12 @@ def _judge_all(
 ) -> None:
     """Have judges grade every successful answer whose question type has criteria.
 
-    Each answer gets its own panel drawn from the pool. Its verdict is set, and
-    journaled, once all of its judges have replied. `results` is updated in place.
+    Each answer gets its own panel drawn from the pool. If the panel's votes don't
+    reach a majority (a tie, or too many unusable replies), one more judge is drawn
+    from the pool (never a repeat, never the answer's own provider) and asked too,
+    and this repeats until a majority is reached or every eligible judge in the
+    pool has been asked. `results` is updated in place, and each answer is
+    journaled once it is finalized, graded or not.
     """
     criteria_by_type: dict[str, str | None] = {}
     for result in results:
@@ -293,11 +297,13 @@ def _judge_all(
             criteria_by_type[result.question_type] = load_criteria(result.question_type)
 
     panels: dict[int, list[str]] = {}
+    seeds: dict[int, str] = {}
     jobs: list[tuple[str, Any]] = []
     for index, result in enumerate(results):
         criteria = criteria_by_type[result.question_type]
         if criteria and result.response and not result.error:
             seed_text = f"{result.prompt_id}|{result.model}|{result.effort or 'default'}|{result.run}"
+            seeds[index] = seed_text
             panels[index] = pick_judges(judge_pool, judges_per_answer, result.model, seed_text)
             for judge_model in panels[index]:
                 jobs.append((judge_model, (index, judge_model, result.response, criteria)))
@@ -308,18 +314,35 @@ def _judge_all(
         return
 
     votes: dict[int, list[JudgeVote]] = defaultdict(list)
+    pending = set(panels)  # answers still waiting on a final verdict
 
     def vote_done(payload: Any, vote: JudgeVote) -> None:
-        index = payload[0]
-        votes[index].append(vote)
+        votes[payload[0]].append(vote)
         progress.update(1)
-        if len(votes[index]) == len(panels[index]):
-            ordered = sorted(votes.pop(index), key=lambda v: judge_pool.index(v.judge_model))
-            judged = apply_votes(results[index], ordered, len(panels[index]))
+
+    round_number = 0
+    while jobs:
+        _run_limited(jobs, lambda payload: judge_vote(client, payload[1], payload[2], payload[3]), vote_done)
+        jobs = []
+        round_number += 1
+        for index in list(pending):
+            panel = panels[index]
+            if len(votes[index]) < len(panel):
+                continue  # this answer's current round of judges hasn't all replied yet
+            ordered = sorted(votes[index], key=lambda v: judge_pool.index(v.judge_model))
+            judged = apply_votes(results[index], ordered, len(panel))
+            if judged.judge_error:
+                extra = pick_extra_judge(judge_pool, panel, results[index].model, seeds[index], round_number)
+                if extra:
+                    panel.append(extra)
+                    criteria = criteria_by_type[results[index].question_type]
+                    jobs.append((extra, (index, extra, results[index].response, criteria)))
+                    progress.total += 1
+                    continue
             results[index] = judged
             _journal(journal, judged)
-
-    _run_limited(jobs, lambda payload: judge_vote(client, payload[1], payload[2], payload[3]), vote_done)
+            pending.discard(index)
+        progress.refresh()
 
 
 def _judge_agreement(result: ModelResult) -> str | None:

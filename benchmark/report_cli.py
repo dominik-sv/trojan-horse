@@ -1,6 +1,8 @@
 """Rebuild the report (summary table and charts) from every run saved under runs/."""
 
 import argparse
+import tomllib
+from datetime import datetime
 from pathlib import Path
 
 from .report import (
@@ -13,12 +15,25 @@ from .report import (
 )
 
 
+def report_since(config_path: Path) -> datetime | None:
+    """The optional `report_since` cutoff from benchmark.toml, or None if unset/missing."""
+    if not config_path.is_file():
+        return None
+    data = tomllib.loads(config_path.read_text(encoding="utf-8"))
+    since = data.get("report_since")
+    return datetime.fromisoformat(since) if since else None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Combine all saved runs into one summary.csv and charts. Sends no requests and costs nothing."
     )
     parser.add_argument("--runs-dir", type=Path, default=Path("runs"), help="Folder of saved runs (default: runs).")
     parser.add_argument("--out", type=Path, default=Path("report"), help="Folder to write the report to (default: report).")
+    parser.add_argument(
+        "--config", type=Path, default=Path("benchmark.toml"),
+        help="Config file to read report_since from (default: benchmark.toml).",
+    )
     parser.add_argument(
         "--include-legacy",
         action="store_true",
@@ -33,6 +48,14 @@ def main() -> None:
     runs, skipped = load_runs(args.runs_dir, args.include_legacy)
     if skipped:
         print(f"Skipped {len(skipped)} run(s) without meta.json (use --include-legacy to add them): {', '.join(skipped)}")
+
+    cutoff = report_since(args.config)
+    if cutoff is not None:
+        before_cutoff = [run.path.name for run in runs if run.created < cutoff]
+        if before_cutoff:
+            runs = [run for run in runs if run.created >= cutoff]
+            print(f"Ignored {len(before_cutoff)} run(s) before report_since ({cutoff.isoformat()}): {', '.join(before_cutoff)}")
+
     if not runs:
         raise SystemExit(f"No usable runs found in {args.runs_dir}.")
 

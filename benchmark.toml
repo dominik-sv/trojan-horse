@@ -1,11 +1,16 @@
 # ==================== MODELS ====================
+# A cumulative, append-only roster. `python run.py` auto-skips any model that already has
+# runs_per_prompt saved results for every current prompt, so adding one new model here and
+# running only spends money on that model. Use --all or --models to override.
 models = [
     "openai/gpt-6-astra",
     "openai/gpt-6-sol",
+    "openai/gpt-6.1-sol",
     "openai/gpt-6-luna",
     "anthropic/claude-fable-5.1",
     "anthropic/claude-opus-5.5",
     "anthropic/claude-sonnet-5",
+    "anthropic/claude-sonnet-5.5",
     "anthropic/claude-haiku-4.5",
     "google/gemini-3.8-flash",
     "google/gemini-3.1-pro-preview",
@@ -20,6 +25,7 @@ models = [
     "moonshotai/kimi-k3",
     "mistral/mistral-large-3",
     "meta/llama-4-maverick",
+    "meta/muse-spark-1.3",
 ]
 
 
@@ -42,6 +48,15 @@ runs_per_prompt = 5
 
 # ==================== EFFORT ====================
 test_all_efforts = false
+
+
+# ==================== REPORT ====================
+# visualize.py normally accumulates every run that shares the same prompt text, judge
+# criteria, judge template and judge pool, so repeated runs add up statistical power over
+# time. Set report_since to a run's "created" timestamp (from its meta.json, ISO format) to
+# start a fresh count from that run onward without deleting older run folders - runs before
+# it are ignored, but it and everything compatible after it still accumulate as normal.
+report_since = "2026-09-26T22:28:05"
 
 effort_levels = ["minimal", "low", "medium", "high", "xhigh"]
 

@@ -105,6 +105,19 @@ def pick_judges(pool: list[str], count: int, answer_model: str, seed_text: str) 
     return sorted(chosen, key=pool.index)
 
 
+def pick_extra_judge(pool: list[str], used: list[str], answer_model: str, seed_text: str, round_number: int) -> str | None:
+    """One more judge to break a tie, chosen at random from the pool judges not already on the panel.
+
+    Never the answer's own provider or a judge already used. Seeded by the answer's
+    id plus the escalation round, so repeated runs draw the same extra judges in the
+    same order. Returns None once every eligible judge has already been used.
+    """
+    eligible = [m for m in pool if provider_of(m) != provider_of(answer_model) and m not in used]
+    if not eligible:
+        return None
+    return random.Random(f"{seed_text}|extra{round_number}").choice(sorted(eligible))
+
+
 @dataclass(frozen=True)
 class JudgeVote:
     """What one judge said about one answer."""

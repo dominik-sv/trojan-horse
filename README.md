@@ -24,7 +24,10 @@ the other providers Vercel offers.
 
 Everything you change between runs lives in [benchmark.toml](benchmark.toml):
 
-- `models` — the models that answer each prompt
+- `models` — the models that answer each prompt. It's a cumulative, append-only
+  roster: `python run.py` skips any model that already has `runs_per_prompt`
+  saved results for every current prompt, so adding one new model here and
+  running only spends money on that model
 - `judge_pool` and `judges_per_answer` — the models that may grade answers (did it
   spot the false premise?) and how many of them grade each answer, drawn at
   random. Use an odd number, normally three; the majority decides. An empty pool
@@ -46,10 +49,21 @@ gateway offers, and `python run.py --list-models claude` filters the list.
 python run.py
 ```
 
-Other options: `--config other.toml` uses a different config file,
-`--no-judge` skips grading, and a quoted prompt
+By default, models already covered by saved runs are skipped and only new ones
+run; nothing is sent, and no money is spent, if every model is already covered.
+Other options: `--all` runs the whole roster regardless of coverage,
+`--models openai/gpt-6-luna ...` forces specific models regardless of coverage
+(handy for redoing one that errored), `--config other.toml` uses a different
+config file, `--no-judge` skips grading, and a quoted prompt
 (`python run.py "your question" --type false_premise`) sends just that prompt
-to the configured models.
+to the configured models (always all of them, since coverage doesn't apply to
+one-off prompts).
+
+Coverage is judged against the newest *saved* version of each prompt. A new
+prompt file correctly makes every model "need" it; editing an existing
+prompt's text or criteria does not by itself trigger a re-run, since nothing
+newer has been saved yet to compare against — use `--all` or `--models` the
+first time after that kind of change.
 
 ## Prompts and grading
 
@@ -69,7 +83,14 @@ answer always gets the same judges. Each judge votes yes or no.
 
 An answer's verdict needs more than half of its panel to agree, so two matching
 votes decide it, even if the third judge's reply was unusable. If neither side
-gets a majority, the answer is left ungraded and the reason is recorded.
+gets a majority — a tie, or too many unusable replies — one more judge is drawn
+from the pool (never a repeat, never the answer's own provider) and asked too,
+and this repeats, growing the panel one judge at a time, until a majority is
+reached or every eligible judge in the pool has been asked. Only then is the
+answer left ungraded, with the reason recorded. This means the judge pool needs
+more than `judges_per_answer` eligible judges per provider for escalation to
+actually have room to work with; with exactly `judges_per_answer`, a tied
+answer stays ungraded as before.
 
 `grading.json` keeps every vote (which judge, its verdict, quote and reasoning,
 and cost) plus `judge_agreement` (for example `2 yes / 1 no / 0 unusable`). The end

@@ -385,6 +385,46 @@ def _judge_key(meta: dict) -> tuple | None:
     return (tuple(sorted(pool)), per_answer) if pool else None
 
 
+def models_needing_run(
+    models: list[str],
+    prompts: list[PromptItem],
+    efforts: list[str | None],
+    runs_per_prompt: int,
+    runs_dir: Path,
+) -> tuple[list[str], list[str]]:
+    """Split `models` into those that still need a run and those already covered.
+
+    A model is covered once it has `runs_per_prompt` saved results for every
+    current prompt and every configured effort, at that prompt's latest saved
+    version (via `latest_version_entries`). A prompt no model has ever answered
+    makes every model "needing" it. Editing an *existing* prompt's text or
+    criteria without adding a new prompt file is not detected here, since there
+    is nothing newer on record yet to compare against.
+    """
+    if not runs_dir.is_dir():
+        return list(models), []
+    runs, _ = load_runs(runs_dir)
+    entries, _ = latest_version_entries(runs)
+    counts: dict[tuple[str, str, str], int] = {}
+    for entry in entries:
+        key = (entry["model"], entry["prompt_id"], entry.get("effort") or DEFAULT_LABEL)
+        counts[key] = counts.get(key, 0) + 1
+
+    prompt_ids = [prompt.prompt_id for prompt in prompts]
+    effort_labels = [effort or DEFAULT_LABEL for effort in efforts]
+    needing, covered = [], []
+    for model in models:
+        if all(
+            counts.get((model, prompt_id, effort_label), 0) >= runs_per_prompt
+            for prompt_id in prompt_ids
+            for effort_label in effort_labels
+        ):
+            covered.append(model)
+        else:
+            needing.append(model)
+    return needing, covered
+
+
 def models_in_order(runs: list[SavedRun], entries: list[dict]) -> list[str]:
     """Models in the order they first appear across runs, so charts stay stable as you add more."""
     ordered: list[str] = []
